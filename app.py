@@ -81,7 +81,7 @@ def update_map(_):
                       mapbox_center={"lat": (min_lat + max_lat) / 2, "lon": (min_lon + max_lon) / 2},
                       mapbox_zoom=5)
 
-    fig.update_layout(mapbox_bounds={"west": min_lon - 0.001, "east": max_lon + 0.001, "south": min_lat - 0.001 
+    fig.update_layout(mapbox_bounds={"west": min_lon - 0.001, "east": max_lon + 0.001, "south": min_lat - 0.001, 
                                      "north": max_lat + 0.001})
     
     fig.update_layout(legend_title_text='Relative orbit:') 
