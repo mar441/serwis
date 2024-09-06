@@ -46,7 +46,7 @@ prediction_data_2['step'] = prediction_data_2.groupby('pid').cumcount()
 
 all_prediction_data = pd.concat([prediction_data_1, prediction_data_2], ignore_index=True)
 
-
+px.set_mapbox_access_token('pk.eyJ1IjoibWFycGllayIsImEiOiJjbTBxbXBsMGQwYjgyMmxzN3RpdmlhZDVrIn0.YWJh1RM6HKfN_pbH-jtJ6A')
 app = dash.Dash(__name__)
 
 app.layout = html.Div([
@@ -77,7 +77,7 @@ def update_map(_):
     min_lon = all_data['longitude'].min()
     max_lon = all_data['longitude'].max()
 
-    fig.update_layout(mapbox_style="open-street-map", 
+    fig.update_layout(mapbox_style="satellite", 
                       mapbox_center={"lat": (min_lat + max_lat) / 2, "lon": (min_lon + max_lon) / 2},
                       mapbox_zoom=5)
 
