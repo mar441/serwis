@@ -18,6 +18,11 @@ def load_displacement_data(file_path, file_label):
     df['file'] = file_label
     return df
 
+def load_anomaly_data(file_path, file_label):
+    df = pd.read_csv(file_path)
+    df['file'] = file_label
+    return df
+
 geo_data_1 = pd.read_csv('mos_1.csv')
 geo_data_2 = pd.read_csv('mos_2.csv')
 geo_data_3 = pd.read_csv('msz_1.csv')
@@ -63,6 +68,13 @@ prediction_data_4['step'] = prediction_data_4.groupby('pid').cumcount()
 
 all_prediction_data = pd.concat([prediction_data_1, prediction_data_2, prediction_data_3, prediction_data_4], ignore_index=True)
 
+anomaly_data_1 = load_anomaly_data('anomaly1.csv', 'Anomaly Set 1')
+anomaly_data_2 = load_anomaly_data('anomaly2.csv', 'Anomaly Set 2')
+anomaly_data_3 = load_anomaly_data('anomaly3.csv', 'Anomaly Set 3')
+anomaly_data_4 = load_anomaly_data('anomaly4.csv', 'Anomaly Set 4')
+
+all_anomaly_data = pd.concat([anomaly_data_1, anomaly_data_2, anomaly_data_3, anomaly_data_4], ignore_index=True)
+
 all_data.sort_values(by=['pid', 'timestamp'], inplace=True)
 all_data['displacement_diff'] = all_data.groupby('pid')['displacement'].diff()
 all_data['time_diff'] = all_data.groupby('pid')['timestamp'].diff().dt.days
@@ -77,30 +89,44 @@ px.set_mapbox_access_token('pk.eyJ1IjoibWFycGllayIsImEiOiJjbTBxbXBsMGQwYjgyMmxzN
 app = dash.Dash(__name__)
 
 app.layout = html.Div([
-    dcc.Dropdown(
-        id='map-style-dropdown',
-        options=[
-            {'label': 'Satellite', 'value': 'satellite'},
-            {'label': 'Outdoors', 'value': 'outdoors'},
-            {'label': 'Light', 'value': 'light'},
-            {'label': 'Dark', 'value': 'dark'},
-            {'label': 'Streets', 'value': 'streets'},
-        ],
-        value='satellite',  
-        clearable=False,
-        style={'width': '200px', 'margin': '10px'}
-    ),
-    dcc.Dropdown(
-        id='color-mode-dropdown',
-        options=[
-            {'label': 'Orbit Type', 'value': 'orbit'},
-            {'label': 'Displacement Mean Velocity [mm/year]', 'value': 'speed'}
-        ],
-        value='orbit', 
-        clearable=False,
-        style={'width': '300px', 'margin': '10px'}
-    ),
-    dcc.Graph(id='map', style={'height': '80vh', 'width': '95vw'}),
+    html.H3("Select Map and Data Visualization Options"),  
+
+    html.Div([ 
+        html.Div([
+            html.Label("Map Style"),
+            dcc.Dropdown(
+                id='map-style-dropdown',
+                options=[
+                    {'label': 'Satellite', 'value': 'satellite'},
+                    {'label': 'Outdoors', 'value': 'outdoors'},
+                    {'label': 'Light', 'value': 'light'},
+                    {'label': 'Dark', 'value': 'dark'},
+                    {'label': 'Streets', 'value': 'streets'},
+                ],
+                value='satellite',
+                clearable=False,
+                style={'width': '90%'}
+            )
+        ], style={'display': 'inline-block', 'width': '45%', 'padding': '10px'}),
+
+        html.Div([
+            html.Label("Visualization Option"),
+            dcc.Dropdown(
+                id='color-mode-dropdown',
+                options=[
+                    {'label': 'Orbit Type', 'value': 'orbit'},
+                    {'label': 'Displacement Mean Velocity [mm/year]', 'value': 'speed'},
+                    {'label': 'Anomaly Type', 'value': 'anomaly_type'},
+                ],
+                value='orbit',
+                clearable=False,
+                style={'width': '90%'}
+            )
+        ], style={'display': 'inline-block', 'width': '45%', 'padding': '10px'})  
+    ]),
+
+    dcc.Graph(id='map', style={'height': '80vh', 'width': '95vw'}, config={'scrollZoom': True }),
+
     html.Div(id='displacement-container', 
              children=[dcc.Graph(id='displacement-graph', style={'height': '50vh', 'width': '95vw'})], 
              style={'display': 'none'})
@@ -113,33 +139,62 @@ app.layout = html.Div([
 )
 def update_map(map_style, color_mode):
     data = all_data.drop_duplicates(subset=['pid'])
+
     if color_mode == 'orbit':
         fig = px.scatter_mapbox(data,
                                 lat='latitude',
                                 lon='longitude',
                                 hover_name='pid',
                                 hover_data={'height': True, 'mean_velocity': True},
-                                color='file', 
+                                color='file',
                                 zoom=18,
                                 height=800)
-        
-    else:
+
+        fig.update_layout(
+            legend_title_text='Orbit type', 
+            legend=dict(yanchor="top",
+                        y=0.99,
+                        xanchor="right",
+                        x=0.99)
+        )
+
+    elif color_mode == 'speed':
         fig = px.scatter_mapbox(data,
                                 lat='latitude',
                                 lon='longitude',
                                 hover_name='pid',
                                 hover_data={'height': True, 'mean_velocity': True}, 
-                                color='mean_velocity',  
-                                color_continuous_scale=px.colors.diverging.RdYlBu,
-                                range_color=(data['mean_velocity'].min(), data['mean_velocity'].max()),
+                                color='mean_velocity',
+                                color_continuous_scale='Jet', 
+                                range_color=(5, -5),
                                 zoom=18,
                                 height=800)
 
-        fig.update_layout(coloraxis_colorbar=dict(
-            title="Mean Velocity (mm/year)",
-            tickvals=np.linspace(-5, 5, 1),
-            ticktext=[f"{val:.2f}" for val in np.linspace(data['mean_velocity'].min(), data['mean_velocity'].max(), 5)]
+        fig.update_layout(coloraxis=dict(
+            colorscale='Jet',  
+            cmin=-5,  
+            cmax=5,   
+            colorbar=dict(
+                title="Mean Velocity (mm/year)",
+                tickvals=[5, 2.5, 0, -2.5, -5], 
+                ticktext=['-5', '-2.5', '0', '2.5', '5'],
+                tickmode='array' 
+            )
         ))
+
+    elif color_mode == 'anomaly_type':  
+        merged_data = data.merge(all_anomaly_data[['pid', 'is_anomaly']], on='pid', how='left')
+        merged_data['anomaly_status'] = merged_data['is_anomaly'].fillna(False).astype(bool)
+
+        fig = px.scatter_mapbox(merged_data,
+                                lat='latitude',
+                                lon='longitude',
+                                hover_name='pid',
+                                hover_data={'height': True, 'mean_velocity': True},
+                                color=merged_data['anomaly_status'].map({True: 'Anomaly', False: 'No Anomaly'}),
+                                color_discrete_map={'Anomaly': 'red', 'No Anomaly': 'green'},
+                                zoom=18,
+                                height=800)
 
     min_lat = data['latitude'].min()
     max_lat = data['latitude'].max()
@@ -160,37 +215,30 @@ def update_map(map_style, color_mode):
 
     return fig
 
-@app.callback([Output('displacement-graph', 'figure'), Output('displacement-container', 'style')], Input('map', 'clickData'))
-
+@app.callback(
+    [Output('displacement-graph', 'figure'), Output('displacement-container', 'style')],
+    Input('map', 'clickData')
+)
 def display_displacement(clickData):
     if clickData is None:
         return {}, {'display': 'none'}
-    
+
     point_id = clickData['points'][0]['hovertext']  
     filtered_data = all_data[all_data['pid'] == point_id].copy()
-    filtered_predictions = all_prediction_data[all_prediction_data['pid'] == point_id].copy()
+    filtered_anomalies = all_anomaly_data[all_anomaly_data['pid'] == point_id].copy()
 
-    if len(filtered_data) >= 60:
-        prediction_timestamps = filtered_data['timestamp'].iloc[-60:].values
-        filtered_predictions = filtered_predictions.iloc[-len(prediction_timestamps):].copy()
-        filtered_predictions.loc[:, 'timestamp'] = prediction_timestamps
-
-    filtered_data.set_index('timestamp', inplace=True)
-    filtered_predictions.set_index('timestamp', inplace=True)
-
-    filtered_data['residuals'] = filtered_data['displacement'] - filtered_predictions['predicted_displacement']
+    if filtered_anomalies.empty:
+        return {}, {'display': 'none'}
     
-    degrees_of_freedom = 60
-    residuals_std = filtered_data['residuals'].std()
+    if len(filtered_data) >= 60:
+        filtered_anomalies = filtered_anomalies.tail(60)
+        filtered_anomalies['timestamp'] = filtered_data['timestamp'].tail(60).values
+    
+    filtered_anomalies.set_index('timestamp', inplace=True)
+    filtered_data.set_index('timestamp', inplace=True)
 
-    margin_of_error = t.ppf(0.95, degrees_of_freedom) * residuals_std
-    filtered_predictions['yhat_lower'] = filtered_predictions['predicted_displacement'] - margin_of_error
-    filtered_predictions['yhat_upper'] = filtered_predictions['predicted_displacement'] + margin_of_error
-
-    filtered_data = filtered_data.join(filtered_predictions[['yhat_lower', 'yhat_upper']], how='left')
-
-    filtered_data['anomaly'] = (filtered_data['displacement'] < filtered_data['yhat_lower']) | \
-    (filtered_data['displacement'] > filtered_data['yhat_upper'])
+    filtered_data = filtered_data.join(filtered_anomalies[['predicted_value', 'upper_bound', 'lower_bound', 'is_anomaly']], 
+                                       how='left')
 
     fig = px.line(filtered_data.reset_index(), x='timestamp', y='displacement', 
                   title=f"Displacement for point {point_id}",
@@ -202,26 +250,26 @@ def display_displacement(clickData):
                     name='Actual Displacement', 
                     line=dict(color='blue'))
 
-    fig.add_scatter(x=filtered_predictions.index, y=filtered_predictions['predicted_displacement'], 
+    fig.add_scatter(x=filtered_data.index, y=filtered_data['predicted_value'], 
                     mode='lines+markers', 
                     name='Predicted Displacement', 
                     line=dict(color='orange'))
-    
-    fig.add_scatter(x=filtered_predictions.index, 
-                    y=filtered_predictions['yhat_upper'], 
+
+    fig.add_scatter(x=filtered_data.index, 
+                    y=filtered_data['upper_bound'], 
                     mode='lines', 
                     line=dict(color='gray', dash='dash'),
                     name='Upper Bound')
 
-    fig.add_scatter(x=filtered_predictions.index, 
-                    y=filtered_predictions['yhat_lower'],
+    fig.add_scatter(x=filtered_data.index, 
+                    y=filtered_data['lower_bound'],
                     mode='lines',
                     line=dict(color='gray', dash='dash'),
                     fill='tonexty',
                     fillcolor='rgba(128, 128, 128, 0.2)',
                     name='Lower Bound')
 
-    anomalies = filtered_data[filtered_data['anomaly']]
+    anomalies = filtered_data[filtered_data['is_anomaly'] == 1]
     fig.add_scatter(x=anomalies.index, y=anomalies['displacement'], 
                     mode='markers', 
                     name='Anomaly', 
@@ -230,11 +278,11 @@ def display_displacement(clickData):
     fig.update_layout(xaxis_title='Date', yaxis_title='Displacement (mm)', legend_title="Data Type")
   
     fig.update_layout(legend=dict(yanchor="top",
-                                  y=0.99,
+                                  y=1,
                                   xanchor="left",
-                                  x=0.01))
-    
-    return fig, {'display': 'block'} 
+                                  x=1.05))
+
+    return fig, {'display': 'block'}
 
 
 if __name__ == "__main__":
