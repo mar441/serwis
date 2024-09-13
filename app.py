@@ -2,11 +2,12 @@ import pandas as pd
 import dash
 from dash import dcc
 from dash import html
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 import plotly.express as px
 from scipy.stats import t
 import numpy as np
 import os
+from geopy.distance import geodesic
 
 def load_displacement_data(file_path, file_label):
     df = pd.read_csv(file_path)
@@ -89,9 +90,9 @@ px.set_mapbox_access_token('pk.eyJ1IjoibWFycGllayIsImEiOiJjbTBxbXBsMGQwYjgyMmxzN
 app = dash.Dash(__name__)
 
 app.layout = html.Div([
-    html.H3("Select Map and Data Visualization Options"),  
+    html.H3("Select Map and Data Visualization Options"),
 
-    html.Div([ 
+    html.Div([
         html.Div([
             html.Label("Map Style"),
             dcc.Dropdown(
@@ -101,13 +102,13 @@ app.layout = html.Div([
                     {'label': 'Outdoors', 'value': 'outdoors'},
                     {'label': 'Light', 'value': 'light'},
                     {'label': 'Dark', 'value': 'dark'},
-                    {'label': 'Streets', 'value': 'streets'},
+                    {'label': 'Streets', 'value': 'streets'}
                 ],
                 value='satellite',
                 clearable=False,
                 style={'width': '90%'}
             )
-        ], style={'display': 'inline-block', 'width': '45%', 'padding': '10px'}),
+        ], style={'display': 'inline-block', 'width': '30%', 'padding': '10px'}),
 
         html.Div([
             html.Label("Visualization Option"),
@@ -116,124 +117,268 @@ app.layout = html.Div([
                 options=[
                     {'label': 'Orbit Type', 'value': 'orbit'},
                     {'label': 'Displacement Mean Velocity [mm/year]', 'value': 'speed'},
-                    {'label': 'Anomaly Type', 'value': 'anomaly_type'},
+                    {'label': 'Anomaly Type', 'value': 'anomaly_type'}
                 ],
                 value='orbit',
                 clearable=False,
                 style={'width': '90%'}
             )
-        ], style={'display': 'inline-block', 'width': '45%', 'padding': '10px'})  
+        ], style={'display': 'inline-block', 'width': '30%', 'padding': '10px'}),
+
+        html.Div([
+            html.Label("Filter by Orbit Type"),
+            dcc.Dropdown(
+                id='orbit-filter-dropdown',
+                options=[
+                    {'label': 'Ascending', 'value': 'Ascending 124'},
+                    {'label': 'Descending', 'value': 'Descending 175'}
+                ],
+                value='Ascending 124',
+                multi=True,
+                clearable=False,
+                style={'width': '90%'}
+            )
+        ], style={'display': 'inline-block', 'width': '30%', 'padding': '10px'}),
+
+        html.Div([
+            html.Label("Enable Distance Calculation"),
+            dcc.Dropdown(
+                id='distance-calc-dropdown',
+                options=[
+                    {'label': 'Yes', 'value': 'yes'},
+                    {'label': 'No', 'value': 'no'}
+                ],
+                value='no',
+                clearable=False,
+                style={'width': '90%'}
+            )
+        ], style={'display': 'inline-block', 'width': '30%', 'padding': '10px'})
     ]),
 
-    dcc.Graph(id='map', style={'height': '80vh', 'width': '95vw'}, config={'scrollZoom': True }),
+    html.Div(id='distance-output', style={'font-size': '16px', 'padding': '10px', 'color': 'black'}),
 
-    html.Div(id='displacement-container', 
-             children=[dcc.Graph(id='displacement-graph', style={'height': '50vh', 'width': '95vw'})], 
-             style={'display': 'none'})
+    dcc.Graph(id='map', style={'height': '80vh', 'width': '95vw'}, config={'scrollZoom': True}),
+
+    dcc.Store(id='selected-points', data={'point_1': None, 'point_2': None}),
+
+    html.Div(id='displacement-container', children=[
+        html.Div([
+            html.Label("Select Date Range", style={'font-size': '16px'}),
+            dcc.DatePickerRange(
+                id='date-range-picker',
+                start_date=all_data['timestamp'].min(),
+                end_date=all_data['timestamp'].max(),
+                display_format='YYYY-MM-DD',
+                style={'height': '5px', 
+                'width': '300px', 
+                'font-family': 'Arial', 
+                'font-size': '4px', 
+                'display': 'inline-block',
+                'padding': '5px' }
+            )
+        ], style={'display': 'inline-block', 'padding': '10px'}),
+
+        html.Div([
+            html.Label("Set Y-Axis Range (mm)"),
+            dcc.Input(
+                id='y-axis-min',
+                type='number',
+                placeholder='Min',
+                style={'width': '20%', 'margin-right': '10px'}
+            ),
+            dcc.Input(
+                id='y-axis-max',
+                type='number',
+                placeholder='Max',
+                style={'width': '20%'}
+            ),
+        ], style={'display': 'inline-block', 'padding': '10px'}),
+
+        dcc.Graph(id='displacement-graph', style={'height': '50vh', 'width': '95vw'})
+    ], style={'display': 'none'})
 ])
 
 @app.callback(
     Output('map', 'figure'),
     [Input('map-style-dropdown', 'value'),
-     Input('color-mode-dropdown', 'value')]
+     Input('color-mode-dropdown', 'value'),
+     Input('orbit-filter-dropdown', 'value')]
 )
-def update_map(map_style, color_mode):
+def update_map(map_style, color_mode, orbit_filter):
     data = all_data.drop_duplicates(subset=['pid'])
 
-    if color_mode == 'orbit':
-        fig = px.scatter_mapbox(data,
-                                lat='latitude',
-                                lon='longitude',
-                                hover_name='pid',
-                                hover_data={'height': True, 'mean_velocity': True},
-                                color='file',
-                                zoom=18,
-                                height=800)
+    if isinstance(orbit_filter, str):
+        orbit_filter = [orbit_filter]
 
-        fig.update_layout(
-            legend_title_text='Orbit type', 
-            legend=dict(yanchor="top",
-                        y=0.99,
-                        xanchor="right",
-                        x=0.99)
-        )
+    filtered_data = data[data['file'].isin(orbit_filter)]
+    filtered_data.loc[:, 'mean_velocity'] = filtered_data['mean_velocity'].round(1)
+
+    if color_mode == 'orbit':
+        fig = px.scatter_mapbox(filtered_data,
+                                lat='latitude', lon='longitude',
+                                hover_name='pid',
+                                hover_data={
+                                    'latitude': True,
+                                    'longitude': True,
+                                    'height': True,
+                                    'mean_velocity': True
+                                },
+                                labels={
+                                    'latitude': 'Latitude',
+                                    'longitude': 'Longitude',
+                                    'height': 'Height',
+                                    'mean_velocity': 'Mean Velocity'
+                                },
+                                color='file',
+                                zoom=14)
+
+        fig.update_layout(legend_title_text='Orbit Type')
+
 
     elif color_mode == 'speed':
-        fig = px.scatter_mapbox(data,
-                                lat='latitude',
-                                lon='longitude',
+        fig = px.scatter_mapbox(filtered_data,
+                                lat='latitude', lon='longitude',
                                 hover_name='pid',
-                                hover_data={'height': True, 'mean_velocity': True}, 
+                                hover_data={
+                                    'latitude': True,
+                                    'longitude': True,
+                                    'height': True,
+                                    'mean_velocity': True
+                                },
                                 color='mean_velocity',
                                 color_continuous_scale='Jet', 
-                                range_color=(5, -5),
-                                zoom=18,
-                                height=800)
+                                range_color=(-5, 5), 
+                                labels={
+                                    'latitude': 'Latitude',
+                                    'longitude': 'Longitude',
+                                    'height': 'Height',
+                                    'mean_velocity': 'Mean Velocity'
+                                },
+                                zoom=14)
 
-        fig.update_layout(coloraxis=dict(
-            colorscale='Jet',  
-            cmin=-5,  
-            cmax=5,   
-            colorbar=dict(
-                title="Mean Velocity (mm/year)",
-                tickvals=[5, 2.5, 0, -2.5, -5], 
-                ticktext=['-5', '-2.5', '0', '2.5', '5'],
-                tickmode='array' 
-            )
-        ))
+        fig.update_layout(legend_title_text='Mean Velocity [mm/year]')
 
-    elif color_mode == 'anomaly_type':  
-        merged_data = data.merge(all_anomaly_data[['pid', 'is_anomaly']], on='pid', how='left')
+    elif color_mode == 'anomaly_type':
+        merged_data = filtered_data.merge(all_anomaly_data[['pid', 'is_anomaly']], on='pid', how='left')
         merged_data['anomaly_status'] = merged_data['is_anomaly'].fillna(False).astype(bool)
 
         fig = px.scatter_mapbox(merged_data,
-                                lat='latitude',
-                                lon='longitude',
+                                lat='latitude', lon='longitude',
                                 hover_name='pid',
-                                hover_data={'height': True, 'mean_velocity': True},
+                                hover_data={
+                                    'latitude': True,
+                                    'longitude': True,
+                                    'height': True,
+                                    'mean_velocity': True
+                                },
+                                labels={
+                                    'latitude': 'Latitude',
+                                    'longitude': 'Longitude',
+                                    'height': 'Height',
+                                    'mean_velocity': 'Mean Velocity'
+                                },
                                 color=merged_data['anomaly_status'].map({True: 'Anomaly', False: 'No Anomaly'}),
                                 color_discrete_map={'Anomaly': 'red', 'No Anomaly': 'green'},
-                                zoom=18,
-                                height=800)
+                                zoom=14)
 
-    min_lat = data['latitude'].min()
-    max_lat = data['latitude'].max()
-    min_lon = data['longitude'].min()
-    max_lon = data['longitude'].max()
+        fig.update_layout(
+            legend_title_text='Anomaly Type',
+            mapbox_style=map_style,
+            autosize=True,
+            margin=dict(l=0, r=0, t=0, b=0)
+        )
 
-    fig.update_layout(mapbox_style=map_style,  
-                      mapbox_center={"lat": (min_lat + max_lat) / 2, "lon": (min_lon + max_lon) / 2},
-                      mapbox_zoom=14)
-
-    fig.update_layout(mapbox_bounds={"west": min_lon - 2, "east": max_lon + 2, "south": min_lat - 2, 
-                                     "north": max_lat + 2})
-    
-    fig.update_layout(legend=dict(yanchor="top",
-                                  y=0.99,
-                                  xanchor="right",
-                                  x=0.99))
+    fig.update_layout(
+        mapbox_style=map_style,
+        autosize=True,
+        margin=dict(l=0, r=0, t=0, b=0)
+    )
 
     return fig
 
 @app.callback(
-    [Output('displacement-graph', 'figure'), Output('displacement-container', 'style')],
-    Input('map', 'clickData')
+    Output('selected-points', 'data'),
+    [Input('map', 'clickData')],
+    [State('selected-points', 'data')]
 )
-def display_displacement(clickData):
+def update_selected_points(clickData, selected_points):
+    if clickData is None:
+        return selected_points
+    
+    point_id = clickData['points'][0]['hovertext']
+    lat = clickData['points'][0]['lat']
+    lon = clickData['points'][0]['lon']
+    
+    if selected_points['point_1'] is None:
+        selected_points['point_1'] = {'pid': point_id, 'lat': lat, 'lon': lon}
+    elif selected_points['point_2'] is None:
+        selected_points['point_2'] = {'pid': point_id, 'lat': lat, 'lon': lon}
+    else:
+        selected_points = {'point_1': None, 'point_2': None}
+
+    return selected_points
+
+@app.callback(
+    Output('distance-output', 'children'),
+    [Input('selected-points', 'data'),
+     Input('distance-calc-dropdown', 'value')]
+)
+def display_distance(selected_points, distance_calc_enabled):
+    if distance_calc_enabled == 'no':
+        return ""
+
+    point_1 = selected_points['point_1']
+    point_2 = selected_points['point_2']
+    
+    if point_1 is not None and point_2 is not None:
+        coords_1 = (point_1['lat'], point_1['lon'])
+        coords_2 = (point_2['lat'], point_2['lon'])
+
+        distance_km = geodesic(coords_1, coords_2).kilometers
+        
+        return html.Div([
+            html.H4("Selected Points and Distance"),
+            html.Ul([
+                html.Li(f"Point 1: {point_1['pid']} (Lat: {point_1['lat']}, Lon: {point_1['lon']})"),
+                html.Li(f"Point 2: {point_2['pid']} (Lat: {point_2['lat']}, Lon: {point_2['lon']})"),
+                html.Li(f"Distance: {distance_km:.2f} km")
+            ], style={'list-style-type': 'none', 'padding': '0', 'margin': '0'})
+        ], style={'padding': '10px', 'border': '1px solid #ddd', 'border-radius': '5px'})
+    else:
+        return "Select two points on the map to calculate the distance."
+
+@app.callback(
+    [Output('displacement-graph', 'figure'), Output('displacement-container', 'style')],
+    [Input('map', 'clickData'),
+     Input('date-range-picker', 'start_date'),
+     Input('date-range-picker', 'end_date'),
+     Input('y-axis-min', 'value'),
+     Input('y-axis-max', 'value')]
+)
+def display_displacement(clickData, start_date, end_date, y_min, y_max):
     if clickData is None:
         return {}, {'display': 'none'}
 
-    point_id = clickData['points'][0]['hovertext']  
-    filtered_data = all_data[all_data['pid'] == point_id].copy()
+    point_id = clickData['points'][0]['hovertext']
+
+    start_date = pd.to_datetime(start_date)
+    end_date = pd.to_datetime(end_date)
+
+    filtered_data = all_data[
+        (all_data['pid'] == point_id) &
+        (all_data['timestamp'] >= start_date) &
+        (all_data['timestamp'] <= end_date)
+    ].copy()
+
     filtered_anomalies = all_anomaly_data[all_anomaly_data['pid'] == point_id].copy()
 
-    if filtered_anomalies.empty:
+    if filtered_anomalies.empty or filtered_data.empty:
         return {}, {'display': 'none'}
-    
+
     if len(filtered_data) >= 60:
         filtered_anomalies = filtered_anomalies.tail(60)
         filtered_anomalies['timestamp'] = filtered_data['timestamp'].tail(60).values
-    
+
     filtered_anomalies.set_index('timestamp', inplace=True)
     filtered_data.set_index('timestamp', inplace=True)
 
@@ -241,13 +386,13 @@ def display_displacement(clickData):
                                        how='left')
 
     fig = px.line(filtered_data.reset_index(), x='timestamp', y='displacement', 
-                  title=f"Displacement for point {point_id}",
+                  title=f"Displacement LOS for point {point_id}",
                   markers=True, 
-                  labels={'displacement': 'Displacement (mm)'})
+                  labels={'displacement': 'Displacement[mm]'})
 
     fig.add_scatter(x=filtered_data.index, y=filtered_data['displacement'], 
                     mode='lines+markers', 
-                    name='Actual Displacement', 
+                    name='InSAR measured displacement', 
                     line=dict(color='blue'))
 
     fig.add_scatter(x=filtered_data.index, y=filtered_data['predicted_value'], 
@@ -275,15 +420,17 @@ def display_displacement(clickData):
                     name='Anomaly', 
                     marker=dict(color='red', size=10))
 
-    fig.update_layout(xaxis_title='Date', yaxis_title='Displacement (mm)', legend_title="Data Type")
-  
+    if y_min is not None and y_max is not None:
+        fig.update_yaxes(range=[y_min, y_max])
+
+    fig.update_layout(xaxis_title='Date', yaxis_title='Displacement LOS[mm]', legend_title="Legend")
+
     fig.update_layout(legend=dict(yanchor="top",
                                   y=1,
                                   xanchor="left",
                                   x=1.05))
 
     return fig, {'display': 'block'}
-
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
