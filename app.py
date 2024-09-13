@@ -359,7 +359,7 @@ def display_displacement(clickData, start_date, end_date, y_min, y_max):
         return {}, {'display': 'none'}
 
     point_id = clickData['points'][0]['hovertext']
-    
+
     start_date = pd.to_datetime(start_date)
     end_date = pd.to_datetime(end_date)
 
@@ -368,20 +368,22 @@ def display_displacement(clickData, start_date, end_date, y_min, y_max):
 
     filtered_anomalies = all_anomaly_data[all_anomaly_data['pid'] == point_id].copy()
 
-    last_n_data = full_data.tail(60)
-    if len(filtered_anomalies) > len(last_n_data):
-        filtered_anomalies = filtered_anomalies.tail(len(last_n_data))
+    if not filtered_anomalies.empty:
+        last_n_data = full_data.tail(60)
+        if len(filtered_anomalies) > len(last_n_data):
+            filtered_anomalies = filtered_anomalies.tail(len(last_n_data))
 
-    filtered_anomalies['timestamp'] = last_n_data['timestamp'].values[:len(filtered_anomalies)]
+        filtered_anomalies['timestamp'] = last_n_data['timestamp'].values[:len(filtered_anomalies)]
+        filtered_anomalies.set_index('timestamp', inplace=True)
+        last_n_data.set_index('timestamp', inplace=True)
 
-    filtered_anomalies.set_index('timestamp', inplace=True)
-    last_n_data.set_index('timestamp', inplace=True)
-
-    last_n_data = last_n_data.join(
-        filtered_anomalies[['predicted_value', 'upper_bound', 'lower_bound', 'is_anomaly']], 
-        how='left'
-    )
-
+        last_n_data = last_n_data.join(
+            filtered_anomalies[['predicted_value', 'upper_bound', 'lower_bound', 'is_anomaly']], 
+            how='left'
+        )
+    else:
+        last_n_data = pd.DataFrame()  
+        
     fig = px.line(filtered_data, x='timestamp', y='displacement', 
                   title=f"Displacement LOS for point {point_id}",
                   markers=True, 
@@ -392,40 +394,38 @@ def display_displacement(clickData, start_date, end_date, y_min, y_max):
                     name='InSAR measured displacement', 
                     line=dict(color='blue'))
 
-    fig.add_scatter(x=last_n_data.index, y=last_n_data['predicted_value'], 
-                    mode='lines+markers', 
-                    name='Predicted Displacement', 
-                    line=dict(color='orange'))
+    if not last_n_data.empty and not last_n_data[(last_n_data.index >= start_date) & (last_n_data.index <= end_date)].empty:
+        fig.add_scatter(x=last_n_data.index, y=last_n_data['predicted_value'], 
+                        mode='lines+markers', 
+                        name='Predicted Displacement', 
+                        line=dict(color='orange'))
 
-    fig.add_scatter(x=last_n_data.index, 
-                    y=last_n_data['upper_bound'], 
-                    mode='lines', 
-                    line=dict(color='gray', dash='dash'),
-                    name='Upper Bound')
+        fig.add_scatter(x=last_n_data.index, 
+                        y=last_n_data['upper_bound'], 
+                        mode='lines', 
+                        line=dict(color='gray', dash='dash'),
+                        name='Upper Bound')
 
-    fig.add_scatter(x=last_n_data.index, 
-                    y=last_n_data['lower_bound'],
-                    mode='lines',
-                    line=dict(color='gray', dash='dash'),
-                    fill='tonexty',
-                    fillcolor='rgba(128, 128, 128, 0.2)',
-                    name='Lower Bound')
+        fig.add_scatter(x=last_n_data.index, 
+                        y=last_n_data['lower_bound'],
+                        mode='lines',
+                        line=dict(color='gray', dash='dash'),
+                        fill='tonexty',
+                        fillcolor='rgba(128, 128, 128, 0.2)',
+                        name='Lower Bound')
 
-    anomalies = last_n_data[last_n_data['is_anomaly'] == 1]
-    fig.add_scatter(x=anomalies.index, y=anomalies['displacement'], 
-                    mode='markers', 
-                    name='Anomaly', 
-                    marker=dict(color='red', size=10))
+        anomalies = last_n_data[last_n_data['is_anomaly'] == 1]
+        if not anomalies.empty:
+            fig.add_scatter(x=anomalies.index, y=anomalies['displacement'], 
+                            mode='markers', 
+                            name='Anomaly', 
+                            marker=dict(color='red', size=10))
 
     if y_min is not None and y_max is not None:
         fig.update_yaxes(range=[y_min, y_max])
 
     fig.update_layout(xaxis_title='Date', yaxis_title='Displacement LOS[mm]', legend_title="Legend")
-
-    fig.update_layout(legend=dict(yanchor="top",
-                                  y=1,
-                                  xanchor="left",
-                                  x=1.05))
+    fig.update_layout(legend=dict(yanchor="top", y=1, xanchor="left", x=1.05))
 
     return fig, {'display': 'block'}
 
