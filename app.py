@@ -104,11 +104,11 @@ app.layout = html.Div([
                     {'label': 'Dark', 'value': 'dark'},
                     {'label': 'Streets', 'value': 'streets'}
                 ],
-                value='satellite',
+                value='satellite',  
                 clearable=False,
-                style={'width': '90%'}
+                style={'width': '100%'}
             )
-        ], style={'display': 'inline-block', 'width': '30%', 'padding': '10px'}),
+        ], style={'display': 'inline-block', 'width': '24%', 'padding': '10px'}),  
 
         html.Div([
             html.Label("Visualization Option"),
@@ -121,9 +121,9 @@ app.layout = html.Div([
                 ],
                 value='orbit',
                 clearable=False,
-                style={'width': '90%'}
+                style={'width': '100%'}
             )
-        ], style={'display': 'inline-block', 'width': '30%', 'padding': '10px'}),
+        ], style={'display': 'inline-block', 'width': '24%', 'padding': '10px'}),
 
         html.Div([
             html.Label("Filter by Orbit Type"),
@@ -136,9 +136,9 @@ app.layout = html.Div([
                 value='Ascending 124',
                 multi=True,
                 clearable=False,
-                style={'width': '90%'}
+                style={'width': '100%'}
             )
-        ], style={'display': 'inline-block', 'width': '30%', 'padding': '10px'}),
+        ], style={'display': 'inline-block', 'width': '24%', 'padding': '10px'}),
 
         html.Div([
             html.Label("Enable Distance Calculation"),
@@ -150,11 +150,11 @@ app.layout = html.Div([
                 ],
                 value='no',
                 clearable=False,
-                style={'width': '90%'}
+                style={'width': '100%'}
             )
-        ], style={'display': 'inline-block', 'width': '30%', 'padding': '10px'})
-    ]),
-
+        ], style={'display': 'inline-block', 'width': '24%', 'padding': '10px'})
+    ], style={'width': '100%', 'display': 'flex', 'justify-content': 'space-between'}),
+    
     html.Div(id='distance-output', style={'font-size': '16px', 'padding': '10px', 'color': 'black'}),
 
     dcc.Graph(id='map', style={'height': '80vh', 'width': '95vw'}, config={'scrollZoom': True}),
@@ -197,7 +197,6 @@ app.layout = html.Div([
         dcc.Graph(id='displacement-graph', style={'height': '50vh', 'width': '95vw'})
     ], style={'display': 'none'})
 ])
-
 @app.callback(
     Output('map', 'figure'),
     [Input('map-style-dropdown', 'value'),
@@ -360,61 +359,59 @@ def display_displacement(clickData, start_date, end_date, y_min, y_max):
         return {}, {'display': 'none'}
 
     point_id = clickData['points'][0]['hovertext']
-
+    
     start_date = pd.to_datetime(start_date)
     end_date = pd.to_datetime(end_date)
 
-    filtered_data = all_data[
-        (all_data['pid'] == point_id) &
-        (all_data['timestamp'] >= start_date) &
-        (all_data['timestamp'] <= end_date)
-    ].copy()
+    full_data = all_data[(all_data['pid'] == point_id)].copy()
+    filtered_data = full_data[(full_data['timestamp'] >= start_date) & (full_data['timestamp'] <= end_date)]
 
     filtered_anomalies = all_anomaly_data[all_anomaly_data['pid'] == point_id].copy()
 
-    if filtered_anomalies.empty or filtered_data.empty:
-        return {}, {'display': 'none'}
+    last_n_data = full_data.tail(60)
+    if len(filtered_anomalies) > len(last_n_data):
+        filtered_anomalies = filtered_anomalies.tail(len(last_n_data))
 
-    if len(filtered_data) >= 60:
-        filtered_anomalies = filtered_anomalies.tail(60)
-        filtered_anomalies['timestamp'] = filtered_data['timestamp'].tail(60).values
+    filtered_anomalies['timestamp'] = last_n_data['timestamp'].values[:len(filtered_anomalies)]
 
     filtered_anomalies.set_index('timestamp', inplace=True)
-    filtered_data.set_index('timestamp', inplace=True)
+    last_n_data.set_index('timestamp', inplace=True)
 
-    filtered_data = filtered_data.join(filtered_anomalies[['predicted_value', 'upper_bound', 'lower_bound', 'is_anomaly']], 
-                                       how='left')
+    last_n_data = last_n_data.join(
+        filtered_anomalies[['predicted_value', 'upper_bound', 'lower_bound', 'is_anomaly']], 
+        how='left'
+    )
 
-    fig = px.line(filtered_data.reset_index(), x='timestamp', y='displacement', 
+    fig = px.line(filtered_data, x='timestamp', y='displacement', 
                   title=f"Displacement LOS for point {point_id}",
                   markers=True, 
                   labels={'displacement': 'Displacement[mm]'})
 
-    fig.add_scatter(x=filtered_data.index, y=filtered_data['displacement'], 
+    fig.add_scatter(x=filtered_data['timestamp'], y=filtered_data['displacement'], 
                     mode='lines+markers', 
                     name='InSAR measured displacement', 
                     line=dict(color='blue'))
 
-    fig.add_scatter(x=filtered_data.index, y=filtered_data['predicted_value'], 
+    fig.add_scatter(x=last_n_data.index, y=last_n_data['predicted_value'], 
                     mode='lines+markers', 
                     name='Predicted Displacement', 
                     line=dict(color='orange'))
 
-    fig.add_scatter(x=filtered_data.index, 
-                    y=filtered_data['upper_bound'], 
+    fig.add_scatter(x=last_n_data.index, 
+                    y=last_n_data['upper_bound'], 
                     mode='lines', 
                     line=dict(color='gray', dash='dash'),
                     name='Upper Bound')
 
-    fig.add_scatter(x=filtered_data.index, 
-                    y=filtered_data['lower_bound'],
+    fig.add_scatter(x=last_n_data.index, 
+                    y=last_n_data['lower_bound'],
                     mode='lines',
                     line=dict(color='gray', dash='dash'),
                     fill='tonexty',
                     fillcolor='rgba(128, 128, 128, 0.2)',
                     name='Lower Bound')
 
-    anomalies = filtered_data[filtered_data['is_anomaly'] == 1]
+    anomalies = last_n_data[last_n_data['is_anomaly'] == 1]
     fig.add_scatter(x=anomalies.index, y=anomalies['displacement'], 
                     mode='markers', 
                     name='Anomaly', 
