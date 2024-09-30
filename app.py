@@ -69,12 +69,21 @@ prediction_data_4['step'] = prediction_data_4.groupby('pid').cumcount()
 
 all_prediction_data = pd.concat([prediction_data_1, prediction_data_2, prediction_data_3, prediction_data_4], ignore_index=True)
 
-anomaly_data_1 = load_anomaly_data('anomaly_output.csv', 'Anomaly Set 1')
-anomaly_data_2 = load_anomaly_data('anomaly_output2.csv', 'Anomaly Set 2')
-anomaly_data_3 = load_anomaly_data('anomaly_output3.csv', 'Anomaly Set 3')
-anomaly_data_4 = load_anomaly_data('anomaly_output4.csv', 'Anomaly Set 4')
+anomaly_data_1_95 = load_anomaly_data('anomaly_output_95.csv', 'Anomaly Set 1 (95%)')
+anomaly_data_2_95 = load_anomaly_data('anomaly_output2_95.csv', 'Anomaly Set 2 (95%)')
+anomaly_data_3_95 = load_anomaly_data('anomaly_output3_95.csv', 'Anomaly Set 3 (95%)')
+anomaly_data_4_95 = load_anomaly_data('anomaly_output4_95.csv', 'Anomaly Set 4 (95%)')
 
-all_anomaly_data = pd.concat([anomaly_data_1, anomaly_data_2, anomaly_data_3, anomaly_data_4], ignore_index=True)
+all_anomaly_data_95 = pd.concat([anomaly_data_1_95, anomaly_data_2_95, 
+                                 anomaly_data_3_95, anomaly_data_4_95], ignore_index=True)
+
+anomaly_data_1_99 = load_anomaly_data('anomaly_output_99.csv', 'Anomaly Set 1 (99%)')
+anomaly_data_2_99 = load_anomaly_data('anomaly_output2_99 .csv', 'Anomaly Set 2 (99%)')
+anomaly_data_3_99 = load_anomaly_data('anomaly_output3_99.csv', 'Anomaly Set 3 (99%)')
+anomaly_data_4_99 = load_anomaly_data('anomaly_output4_99.csv', 'Anomaly Set 4 (99%)')
+
+all_anomaly_data_99 = pd.concat([anomaly_data_1_99, anomaly_data_2_99, 
+                                 anomaly_data_3_99, anomaly_data_4_99], ignore_index=True)
 
 all_data.sort_values(by=['pid', 'timestamp'], inplace=True)
 all_data['displacement_diff'] = all_data.groupby('pid')['displacement'].diff()
@@ -104,12 +113,12 @@ app.layout = html.Div([
                     {'label': 'Dark', 'value': 'dark'},
                     {'label': 'Streets', 'value': 'streets'}
                 ],
-                value='satellite',  
+                value='satellite', 
                 clearable=False,
                 style={'width': '100%'}
             )
-        ], style={'display': 'inline-block', 'width': '24%', 'padding': '10px'}),  
-
+        ], style={'display': 'inline-block', 'width': '24%', 'padding': '10px'}), 
+        
         html.Div([
             html.Label("Visualization Option"),
             dcc.Dropdown(
@@ -259,7 +268,7 @@ def update_map(map_style, color_mode, orbit_filter):
 
     elif color_mode == 'anomaly_type':
 
-        merged_data = filtered_data.merge(all_anomaly_data[['pid', 'is_anomaly']], on='pid', how='left')
+        merged_data = filtered_data.merge(all_anomaly_data_99[['pid', 'is_anomaly']], on='pid', how='left')
 
         merged_data['is_anomaly'] = merged_data['is_anomaly'].fillna(False)
         merged_data['is_anomaly'] = merged_data['is_anomaly'].infer_objects().astype(bool)
@@ -272,7 +281,7 @@ def update_map(map_style, color_mode, orbit_filter):
         merged_data['anomaly_streak_count'] = merged_data.groupby(['pid', 'anomaly_group'])['is_anomaly'].transform('sum')
 
         merged_data['true_anomaly'] = merged_data.apply(
-            lambda row: True if row['anomaly_streak_count'] > 6 and row['is_anomaly'] else False, axis=1
+            lambda row: True if row['anomaly_streak_count'] > 3 and row['is_anomaly'] else False, axis=1
         )
 
         fig = px.scatter_mapbox(merged_data,
@@ -300,13 +309,12 @@ def update_map(map_style, color_mode, orbit_filter):
             autosize=True,
             margin=dict(l=0, r=0, t=0, b=0)
         )
-
+        
     fig.update_layout(
         mapbox_style=map_style,
         autosize=True,
-        margin=dict(l=0, r=0, t=0, b=0)
-    )
-
+        margin=dict(l=0, r=0, t=0, b=0))
+        
     return fig
 
 @app.callback(
@@ -373,31 +381,43 @@ def display_displacement(clickData, start_date, end_date, y_min, y_max):
         return {}, {'display': 'none'}
 
     point_id = clickData['points'][0]['hovertext']
-
     start_date = pd.to_datetime(start_date)
     end_date = pd.to_datetime(end_date)
 
     full_data = all_data[(all_data['pid'] == point_id)].copy()
     filtered_data = full_data[(full_data['timestamp'] >= start_date) & (full_data['timestamp'] <= end_date)]
 
-    filtered_anomalies = all_anomaly_data[all_anomaly_data['pid'] == point_id].copy()
+    last_n_data = full_data.tail(60)
+    
+    filtered_anomalies_95 = all_anomaly_data_95[(all_anomaly_data_95['pid'] == point_id)]
+    filtered_anomalies_99 = all_anomaly_data_99[(all_anomaly_data_99['pid'] == point_id)]
 
-    if not filtered_anomalies.empty:
-        last_n_data = full_data.tail(60)
-        if len(filtered_anomalies) > len(last_n_data):
-            filtered_anomalies = filtered_anomalies.tail(len(last_n_data))
+    if not filtered_anomalies_95.empty:
+        if len(filtered_anomalies_95) > len(last_n_data):
+            filtered_anomalies_95 = filtered_anomalies_95.tail(len(last_n_data))
 
-        filtered_anomalies['timestamp'] = last_n_data['timestamp'].values[:len(filtered_anomalies)]
-        filtered_anomalies.set_index('timestamp', inplace=True)
+        filtered_anomalies_95['timestamp'] = last_n_data['timestamp'].values[:len(filtered_anomalies_95)]
+        filtered_anomalies_95.set_index('timestamp', inplace=True)
+
         last_n_data.set_index('timestamp', inplace=True)
 
         last_n_data = last_n_data.join(
-            filtered_anomalies[['predicted_value', 'upper_bound', 'lower_bound', 'is_anomaly']], 
+            filtered_anomalies_95[['predicted_value', 'upper_bound', 'lower_bound', 'is_anomaly']], 
             how='left'
         )
-    else:
-        last_n_data = pd.DataFrame()  
-        
+
+    if not filtered_anomalies_99.empty:
+        if len(filtered_anomalies_99) > len(last_n_data):
+            filtered_anomalies_99 = filtered_anomalies_99.tail(len(last_n_data))
+
+        filtered_anomalies_99['timestamp'] = last_n_data.index.values[:len(filtered_anomalies_99)]
+        filtered_anomalies_99.set_index('timestamp', inplace=True)
+
+        last_n_data = last_n_data.join(
+            filtered_anomalies_99[['upper_bound', 'lower_bound', 'is_anomaly']], 
+            how='left', rsuffix='_99'
+        )
+
     fig = px.line(filtered_data, x='timestamp', y='displacement', 
                   title=f"Displacement LOS for point {point_id}",
                   markers=True, 
@@ -417,29 +437,56 @@ def display_displacement(clickData, start_date, end_date, y_min, y_max):
         fig.add_scatter(x=last_n_data.index, 
                         y=last_n_data['upper_bound'], 
                         mode='lines', 
-                        line=dict(color='gray', dash='dash'),
-                        name='Upper Bound')
+                        line=dict(color='yellow', dash='dash'),
+                        name='Upper Bound p=95')
 
         fig.add_scatter(x=last_n_data.index, 
                         y=last_n_data['lower_bound'],
                         mode='lines',
-                        line=dict(color='gray', dash='dash'),
+                        line=dict(color='yellow', dash='dash'),
                         fill='tonexty',
-                        fillcolor='rgba(128, 128, 128, 0.2)',
-                        name='Lower Bound')
+                        fillcolor='rgba(255, 252, 127, 0.2)',
+                        name='Lower Bound p=95')
 
-        anomalies = last_n_data[last_n_data['is_anomaly'] == 1]
-        if not anomalies.empty:
-            fig.add_scatter(x=anomalies.index, y=anomalies['displacement'], 
+        anomalies_95 = last_n_data[last_n_data['is_anomaly'] == 1]
+        if not anomalies_95.empty:
+            fig.add_scatter(x=anomalies_95.index, y=anomalies_95['displacement'], 
                             mode='markers', 
-                            name='Anomaly', 
+                            name='Anomalies p=95', 
+                            marker=dict(color='yellow', size=10))
+
+    if 'upper_bound_99' in last_n_data.columns and 'lower_bound_99' in last_n_data.columns:
+        fig.add_scatter(x=last_n_data.index, 
+                        y=last_n_data['upper_bound_99'], 
+                        mode='lines', 
+                        line=dict(color='red', dash='dash'),
+                        name='Upper Bound p=99')
+
+        fig.add_scatter(x=last_n_data.index, 
+                        y=last_n_data['lower_bound_99'],
+                        mode='lines',
+                        line=dict(color='red', dash='dash'),
+                        fill='tonexty',
+                        fillcolor='rgba(254, 121, 104, 0.1)',
+                        name='Lower Bound p=99')
+
+        
+        anomalies_99 = last_n_data[last_n_data['is_anomaly_99'] == 1]
+        if not anomalies_99.empty:
+            fig.add_scatter(x=anomalies_99.index, y=anomalies_99['displacement'], 
+                            mode='markers', 
+                            name='Anomalies p=99', 
                             marker=dict(color='red', size=10))
 
     if y_min is not None and y_max is not None:
         fig.update_yaxes(range=[y_min, y_max])
 
-    fig.update_layout(xaxis_title='Date', yaxis_title='Displacement LOS[mm]', legend_title="Legend")
-    fig.update_layout(legend=dict(yanchor="top", y=1, xanchor="left", x=1.05))
+    fig.update_layout(
+        xaxis_title='Date', 
+        yaxis_title='Displacement LOS[mm]', 
+        legend_title="Legend",
+        legend=dict(yanchor="top", y=1, xanchor="left", x=1.05)
+    )
 
     return fig, {'display': 'block'}
 
