@@ -69,10 +69,10 @@ prediction_data_4['step'] = prediction_data_4.groupby('pid').cumcount()
 
 all_prediction_data = pd.concat([prediction_data_1, prediction_data_2, prediction_data_3, prediction_data_4], ignore_index=True)
 
-anomaly_data_1 = load_anomaly_data('anomaly1.csv', 'Anomaly Set 1')
-anomaly_data_2 = load_anomaly_data('anomaly2.csv', 'Anomaly Set 2')
-anomaly_data_3 = load_anomaly_data('anomaly3.csv', 'Anomaly Set 3')
-anomaly_data_4 = load_anomaly_data('anomaly4.csv', 'Anomaly Set 4')
+anomaly_data_1 = load_anomaly_data('anomaly_output.csv', 'Anomaly Set 1')
+anomaly_data_2 = load_anomaly_data('anomaly_output2.csv', 'Anomaly Set 2')
+anomaly_data_3 = load_anomaly_data('anomaly_output3.csv', 'Anomaly Set 3')
+anomaly_data_4 = load_anomaly_data('anomaly_output4.csv', 'Anomaly Set 4')
 
 all_anomaly_data = pd.concat([anomaly_data_1, anomaly_data_2, anomaly_data_3, anomaly_data_4], ignore_index=True)
 
@@ -258,8 +258,22 @@ def update_map(map_style, color_mode, orbit_filter):
         fig.update_layout(legend_title_text='Mean Velocity [mm/year]')
 
     elif color_mode == 'anomaly_type':
+
         merged_data = filtered_data.merge(all_anomaly_data[['pid', 'is_anomaly']], on='pid', how='left')
-        merged_data['anomaly_status'] = merged_data['is_anomaly'].fillna(False).astype(bool)
+
+        merged_data['is_anomaly'] = merged_data['is_anomaly'].fillna(False)
+        merged_data['is_anomaly'] = merged_data['is_anomaly'].infer_objects().astype(bool)
+
+        merged_data['anomaly_group'] = (
+            (merged_data['is_anomaly'] != merged_data['is_anomaly'].shift()) 
+            | (merged_data['pid'] != merged_data['pid'].shift())
+        ).cumsum()
+
+        merged_data['anomaly_streak_count'] = merged_data.groupby(['pid', 'anomaly_group'])['is_anomaly'].transform('sum')
+
+        merged_data['true_anomaly'] = merged_data.apply(
+            lambda row: True if row['anomaly_streak_count'] > 6 and row['is_anomaly'] else False, axis=1
+        )
 
         fig = px.scatter_mapbox(merged_data,
                                 lat='latitude', lon='longitude',
@@ -276,7 +290,7 @@ def update_map(map_style, color_mode, orbit_filter):
                                     'height': 'Height',
                                     'mean_velocity': 'Mean Velocity'
                                 },
-                                color=merged_data['anomaly_status'].map({True: 'Anomaly', False: 'No Anomaly'}),
+                                color=merged_data['true_anomaly'].map({True: 'Anomaly', False: 'No Anomaly'}),
                                 color_discrete_map={'Anomaly': 'red', 'No Anomaly': 'green'},
                                 zoom=14)
 
