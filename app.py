@@ -45,6 +45,9 @@ geo_data_bedzin['pid'] = geo_data_bedzin['pid'].astype(str).str.strip()
 geo_data_grunwald = pd.read_csv('grunwald_geo.csv', delimiter=';')
 geo_data_grunwald['pid'] = geo_data_grunwald['pid'].astype(str).str.strip()
 
+geo_data_grunwald_lstm = pd.read_csv('grunwald_geo.csv', delimiter=';')
+geo_data_grunwald_lstm['pid'] = geo_data_grunwald_lstm['pid'].astype(str).str.strip()
+
 displacement_data_1 = load_displacement_data('mz2_10.csv', 'Descending 124')
 displacement_data_2 = load_displacement_data('mz4_3.csv', 'Ascending 175')
 displacement_data_3 = load_displacement_data('msz4_3.csv', 'Descending 124')
@@ -74,9 +77,15 @@ displacement_data_bedzin = load_displacement_data('bedzin_displ.csv', 'Ascending
 displacement_data_bedzin['pid'] = displacement_data_bedzin['pid'].astype(str).str.strip() 
 all_data_bedzin = pd.merge(displacement_data_bedzin, geo_data_bedzin, on='pid', how='left')
 
-displacement_data_grunwald = load_displacement_data('grunwald_displ.csv', 'Ascending 175')
+displacement_data_grunwald = load_displacement_data('grunwald_displ.csv', 
+                                                      'Ascending 175')
 displacement_data_grunwald['pid'] = displacement_data_grunwald['pid'].astype(str).str.strip() 
 all_data_grunwald = pd.merge(displacement_data_grunwald, geo_data_grunwald, on='pid', how='left')
+
+displacement_data_grunwald_lstm  = load_displacement_data('grunwald_displ.csv', 
+                                                      'Ascending 175')
+displacement_data_grunwald_lstm ['pid'] = displacement_data_grunwald_lstm ['pid'].astype(str).str.strip() 
+all_data_grunwald_lstm  = pd.merge(displacement_data_grunwald_lstm , geo_data_grunwald_lstm , on='pid', how='left')
 
 prediction_data_1 = pd.read_csv('predictions_values.csv')
 prediction_data_1 = prediction_data_1.melt(var_name='pid', 
@@ -120,10 +129,15 @@ prediction_data_bedzin = prediction_data_bedzin.melt(var_name='pid', value_name=
 prediction_data_bedzin['label'] = 'Bedzin Prediction Set'
 prediction_data_bedzin['step'] = prediction_data_bedzin.groupby('pid').cumcount()
 
-prediction_data_grunwald = pd.read_csv('predictions_grunwald.csv', delimiter=',')
+prediction_data_grunwald = pd.read_csv('predictions_grunwald_auto.csv', delimiter=',')
 prediction_data_grunwald = prediction_data_grunwald.melt(var_name='pid', value_name='predicted_displacement')
 prediction_data_grunwald['label'] = 'Grunwald Prediction Set'
 prediction_data_grunwald['step'] = prediction_data_grunwald.groupby('pid').cumcount()
+
+prediction_data_grunwald_lstm = pd.read_csv('predictions_grunwald.csv', delimiter=',')
+prediction_data_grunwald_lstm = prediction_data_grunwald_lstm.melt(var_name='pid', value_name='predicted_displacement')
+prediction_data_grunwald_lstm['label'] = 'LSTM Grunwald Prediction Set'
+prediction_data_grunwald_lstm['step'] = prediction_data_grunwald_lstm.groupby('pid').cumcount()
 
 anomaly_data_1_95 = load_anomaly_data('anomaly_output_95.csv', 'Anomaly Set 1 (95%)')
 anomaly_data_2_95 = load_anomaly_data('anomaly_output2_95.csv', 'Anomaly Set 2 (95%)')
@@ -157,11 +171,17 @@ anomaly_data_bedzin_95 = anomaly_data_bedzin_95.groupby('pid').head(11)
 anomaly_data_bedzin_99 = load_anomaly_data('anomaly_bedzin_99.csv', 'Anomaly Set 6 LSTM (99%)')
 anomaly_data_bedzin_99 = anomaly_data_bedzin_99.groupby('pid').head(11)
 
-anomaly_data_grunwald_95 = load_anomaly_data('anomaly_grunwald_95.csv', 'Anomaly Set 6 LSTM (95%)')
+anomaly_data_grunwald_95 = load_anomaly_data('anomaly_grunwald_auto_95.csv', 'Anomaly Set 6 LSTM (95%)')
 anomaly_data_grunwald_95 = anomaly_data_grunwald_95.groupby('pid').head(61)
 
-anomaly_data_grunwald_99 = load_anomaly_data('anomaly_grunwald_99.csv', 'Anomaly Set 6 LSTM (99%)')
+anomaly_data_grunwald_99 = load_anomaly_data('anomaly_grunwald_auto_99.csv', 'Anomaly Set 6 LSTM (99%)')
 anomaly_data_grunwald_99 = anomaly_data_grunwald_99.groupby('pid').head(61)
+
+anomaly_data_grunwald_95_lstm = load_anomaly_data('anomaly_grunwald_95.csv', 'Anomaly Set 6 LSTM (95%)')
+anomaly_data_grunwald_95_lstm = anomaly_data_grunwald_95_lstm.groupby('pid').head(61)
+
+anomaly_data_grunwald_99_lstm = load_anomaly_data('anomaly_grunwald_99.csv', 'Anomaly Set 6 LSTM (99%)')
+anomaly_data_grunwald_99_lstm = anomaly_data_grunwald_99_lstm.groupby('pid').head(61)
 
 all_data_wroclaw.sort_values(by=['pid', 'timestamp'], inplace=True)
 all_data_wroclaw['displacement_diff'] = all_data_wroclaw.groupby('pid')['displacement'].diff().round(1)
@@ -208,6 +228,10 @@ mean_velocity_data_grunwald = all_data_grunwald.groupby('pid')['displacement_spe
 mean_velocity_data_grunwald.rename(columns={'displacement_speed': 'mean_velocity'}, inplace=True)
 all_data_grunwald = pd.merge(all_data_grunwald, mean_velocity_data_grunwald, on='pid', how='left')
 
+mean_velocity_data_grunwald_lstm = all_data_grunwald_lstm.groupby('pid')['displacement_speed'].mean().round(1).reset_index()
+mean_velocity_data_grunwald_lstm.rename(columns={'displacement_speed': 'mean_velocity'}, inplace=True)
+all_data_grunwald_lstm = pd.merge(all_data_grunwald_lstm, mean_velocity_data_grunwald_lstm, on='pid', how='left')
+
 def compute_prefix_sums(data):
     data = data.sort_values(by=['pid', 'step'])
     pivot = data.pivot(index='pid', columns='step', values='predicted_displacement').fillna(0).round(1)
@@ -222,6 +246,7 @@ turow_prefix = compute_prefix_sums(prediction_data_turow)
 turow_lstm_prefix = compute_prefix_sums(prediction_data_turow_lstm)
 bedzin_prefix = compute_prefix_sums(prediction_data_bedzin)
 grunwald_prefix = compute_prefix_sums(prediction_data_grunwald)
+grunwald_lstm_prefix = compute_prefix_sums(prediction_data_grunwald_lstm)
 
 prefix_data = {
     ('wroclaw', 'autoencoder'): wroclaw_prefix,
@@ -229,6 +254,7 @@ prefix_data = {
     ('turow', 'lstm'): turow_lstm_prefix,
     ('bedzin', 'autoencoder'): bedzin_prefix,
     ('grunwald', 'autoencoder'): grunwald_prefix,
+    ('grunwald', 'lstm'): grunwald_lstm_prefix,
 }
 
 MAX_WROCLAW = wroclaw_prefix.columns.max()
@@ -357,6 +383,8 @@ app.layout = html.Div([
                 ],
                 value='wroclaw',
                 clearable=False,
+                persistence=True,     
+                persistence_type='memory',
                 style={'width': '100%'}
             )
         ], style={'display': 'inline-block', 'width': '19%', 'padding': '10px'}),
@@ -375,6 +403,8 @@ app.layout = html.Div([
             )
         ], style={'display': 'inline-block', 'width': '19%', 'padding': '10px'})
     ], style={'width': '100%', 'display': 'flex', 'justify-content': 'space-between'}),
+    
+    
 
     html.Div(id='distance-output', style={'font-size': '16px', 'padding': '10px', 'color': 'black'}),
 
@@ -394,19 +424,21 @@ app.layout = html.Div([
 
     html.Div([
         html.Label("Select Observation Range"),
+        html.Div(id='selected-range-dates', style={'fontSize': '14px', 'margin': '10px 0'}),
+
         dcc.RangeSlider(
             id='dynamic-prediction-range-slider',
             min=1,
             max=60,
             step=1, 
             marks={}, 
-            value=[1,5],
-            tooltip={"placement": "bottom", "always_visible": True},
-            allowCross=False   
+            value=[1, 5],
+            tooltip={"placement": "bottom", "always_visible": True}, 
+            allowCross=False
         )
-    ], id='prediction-slider-container', style={'display': 'none', 'padding': '10px'}),  
+    ], id='prediction-slider-container', style={'display': 'none', 'padding': '10px'}),
 
-    dcc.Graph(id='map', style={'height': '80vh', 'width': '95vw'}, config={'scrollZoom': True}),
+    dcc.Graph(id='map', style={'height': '80vh', 'width': '95vw'}, config={'scrollZoom': True, 'doubleClick': False}),
     dcc.Store(id='selected-points', data={'point_1': None, 'point_2': None}),
 
     html.Div(id='displacement-container', children=[
@@ -438,8 +470,56 @@ app.layout = html.Div([
         ], style={'display': 'inline-block', 'padding': '10px'}),
 
         dcc.Graph(id='displacement-graph', style={'height': '50vh', 'width': '95vw'})
-    ], style={'display': 'none'})
+    ], style={'display': 'none'}),
+    html.Div([
+        html.Hr(style={'margin': '5px 0'}),
+        html.Div(
+            [
+                html.P("This work was supported by the Wrocław University of Environmental and Life Sciences (Poland) "
+                    "as part of the research project No. N060/0004/23.")
+            ],
+            style={'textAlign': 'center', 'fontSize': '14px'}
+        )
+    ], style={'padding': '10px'})
 ])
+
+@app.callback(
+    Output('selected-range-dates', 'children'),
+    Input('dynamic-prediction-range-slider', 'value'),
+    State('area-dropdown', 'value')
+)
+def display_selected_dates(range_value, selected_area):
+    start_val, end_val = range_value
+
+    data_for_area = {
+        'wroclaw': all_data_wroclaw,
+        'turow': all_data_turow,
+        'bedzin': all_data_bedzin,
+        'grunwald': all_data_grunwald
+    }.get(selected_area, all_data_wroclaw)
+
+    timestamps_df = (
+        data_for_area
+        .drop_duplicates(subset='obs_step')[['obs_step', 'timestamp']]
+        .sort_values('obs_step')
+    )
+    
+    step_to_date = dict(zip(timestamps_df['obs_step'], timestamps_df['timestamp']))
+
+    date_start = step_to_date.get(start_val)
+    date_end = step_to_date.get(end_val)
+
+    if date_start:
+        date_start_str = date_start.strftime('%Y-%m-%d')
+    else:
+        date_start_str = "N/A"
+
+    if date_end:
+        date_end_str = date_end.strftime('%Y-%m-%d')
+    else:
+        date_end_str = "N/A"
+
+    return f"Selected date range: {date_start_str} to {date_end_str}"
 
 @app.callback(
     Output('prediction-slider-container', 'style'),
@@ -457,6 +537,8 @@ def toggle_prediction_slider_visibility(color_mode):
 )
 def toggle_prediction_method_dropdown(selected_area):
     if selected_area == 'turow':
+        return {'display': 'block', 'padding': '10px'}
+    elif selected_area == 'grunwald':
         return {'display': 'block', 'padding': '10px'}
     else:
         return {'display': 'none'}
@@ -575,7 +657,10 @@ def update_map(map_style, color_mode, orbit_filter, selected_area, pred_range, p
         else:
             max_steps = MAX_WROCLAW
 
-        pred_key = (selected_area, prediction_method if selected_area == 'turow' else 'autoencoder')
+        pred_key = (
+            selected_area,
+            prediction_method if selected_area in ['turow', 'grunwald'] else 'autoencoder'
+        )
         prefix_pivot = prefix_data[pred_key]
 
         end_val = min(end_val, max_steps)
@@ -832,10 +917,16 @@ def display_displacement(clickData, start_date, end_date, y_min, y_max, selected
         anomaly_data_99 = all_anomaly_data_99_wroclaw
         last_n_data = full_data.tail(60)
     elif selected_area == 'grunwald':
-        full_data = all_data_grunwald[all_data_grunwald['pid'] == point_id].copy() 
-        anomaly_data_95 = anomaly_data_grunwald_95
-        anomaly_data_99 = anomaly_data_grunwald_99
-        last_n_data = full_data.tail(61)
+        if prediction_method == 'autoencoder':
+            full_data = all_data_grunwald[all_data_grunwald['pid'] == point_id].copy()
+            anomaly_data_95 = anomaly_data_grunwald_95
+            anomaly_data_99 = anomaly_data_grunwald_99
+            last_n_data = full_data.tail(31)
+        elif prediction_method == 'lstm':
+            full_data = all_data_grunwald_lstm[all_data_grunwald_lstm['pid'] == point_id].copy()
+            anomaly_data_95 = anomaly_data_grunwald_95_lstm
+            anomaly_data_99 = anomaly_data_grunwald_99_lstm
+            last_n_data = full_data.tail(31)
     elif selected_area == 'bedzin':
         full_data = all_data_bedzin[all_data_bedzin['pid'] == point_id].copy() 
         anomaly_data_95 = anomaly_data_bedzin_95
