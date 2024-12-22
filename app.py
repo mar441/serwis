@@ -228,6 +228,11 @@ mean_velocity_data_grunwald = all_data_grunwald.groupby('pid')['displacement_spe
 mean_velocity_data_grunwald.rename(columns={'displacement_speed': 'mean_velocity'}, inplace=True)
 all_data_grunwald = pd.merge(all_data_grunwald, mean_velocity_data_grunwald, on='pid', how='left')
 
+all_data_grunwald_lstm.sort_values(by=['pid', 'timestamp'], inplace=True)
+all_data_grunwald_lstm['displacement_diff'] = all_data_turow_lstm.groupby('pid')['displacement'].diff().round(1)
+all_data_grunwald_lstm['time_diff'] = all_data_turow_lstm.groupby('pid')['timestamp'].diff().dt.days.round(1)
+all_data_grunwald_lstm['displacement_speed'] = ((all_data_turow_lstm['displacement_diff'] / all_data_turow_lstm['time_diff']) * 365).round(1)
+
 mean_velocity_data_grunwald_lstm = all_data_grunwald_lstm.groupby('pid')['displacement_speed'].mean().round(1).reset_index()
 mean_velocity_data_grunwald_lstm.rename(columns={'displacement_speed': 'mean_velocity'}, inplace=True)
 all_data_grunwald_lstm = pd.merge(all_data_grunwald_lstm, mean_velocity_data_grunwald_lstm, on='pid', how='left')
