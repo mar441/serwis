@@ -302,7 +302,7 @@ MAX_ACTUAL_TUROW = actual_turow_prefix.columns.max()
 MAX_ACTUAL_BEDZIN = actual_bedzin_prefix.columns.max()
 MAX_ACTUAL_GRUNWALD = actual_grunwald_prefix.columns.max()
 
-px.set_mapbox_access_token('pk.eyJ1IjoibWFycGllayIsImEiOiJjbTBxbXBsMGQwYjgyMmxzN3RpdmlhZDVrIn0.YWJh1RM6HKfN_pbH-jtJ6A')
+px.set_mapbox_access_token('pk.eyJ1IjoibnBpZWsiLCJhIjoiY203bG5vZm9hMGRkMDJscjB0cG44OWFoOCJ9.HrzUxjpcUzYd9LiYuoVWnw')
 
 orbit_geometry_info = {
     'Ascending 175': {
