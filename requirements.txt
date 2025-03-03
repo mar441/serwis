@@ -11,3 +11,4 @@ numpy
 matplotlib
 scipy
 geopy
+psutil
