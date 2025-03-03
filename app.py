@@ -405,11 +405,33 @@ orbit_geometry_info = {
         'Mean Incidence angle': '41.85°' 
     }}
 
-app = dash.Dash(__name__, suppress_callback_exceptions=True)
+app = dash.Dash(__name__, suppress_callback_exceptions=True,external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 app.layout = html.Div([
-    html.H3("Select Map and Data Visualization Options"),
+    html.Div([
+        html.H3("Select Map and Data Visualization Options", style={'display': 'inline-block', 'margin-right': '20px'}),
+        html.Button("Info", id="open-help-modal", n_clicks=0, className="help-button", style={'float': 'right'}),
+    ], style={'display': 'flex', 'justify-content': 'space-between', 'align-items': 'center'}),
 
+    dbc.Modal(
+        [
+            dbc.ModalHeader(),
+            dbc.ModalBody(
+                html.Iframe(
+                    src=app.get_asset_url("INSTRUKCJA_OBSLUGI_SERWISU.docx.pdf"),
+                    style={"height": "500px", "width": "100%"}
+                )
+            ),
+            dbc.ModalFooter(
+                html.Button("Close", id="close-help-modal", className="close-button")
+            )
+        ],
+        id="help-modal",
+        is_open=False,
+        size="lg",
+        style={"overflowY": "auto"}
+    ),
+    
     html.Div([
         html.Div([
             html.Label("Map Style"),
@@ -501,13 +523,12 @@ app.layout = html.Div([
         dcc.Dropdown(
             id='prediction-method-dropdown',
             options=[
-                {'label': 'Autoencoder', 'value': 'autoencoder'},
                 {'label': 'Autoencoder Dense', 'value': 'dense'},
                 {'label': 'LSTM', 'value': 'lstm'},
                 {'label': 'Autoencoder Conv', 'value': 'conv'},
                 {'label': 'ML', 'value': 'ml'}
             ],
-            value='autoencoder',
+            value='dense',
             clearable=False,
             style={'width': '100%'}
         )
@@ -562,6 +583,25 @@ app.layout = html.Div([
 
         dcc.Graph(id='displacement-graph', style={'height': '50vh', 'width': '95vw'})
     ], style={'display': 'none'}),
+    
+        html.Div([
+            html.H5(style={'marginTop': '10px', 'marginBottom': '10px'}),
+            dash_table.DataTable(
+                id='point-attributes-table',
+                columns=[
+                    {'name': 'Name', 'id': 'Name'},
+                    {'name': 'Value', 'id': 'Value'}
+                ],
+                data=[],
+                style_cell={'textAlign': 'left'},
+                style_header={
+                    'backgroundColor': 'white',
+                    'fontWeight': 'bold'
+                },
+                style_table={'width': '50%', 'margin': 'auto'}
+            )
+        ], id='point-attributes-container', style={'display': 'none'}),
+    
     html.Div([
         html.Hr(style={'margin': '5px 0'}),
         html.Div(
@@ -571,8 +611,31 @@ app.layout = html.Div([
             ],
             style={'textAlign': 'center', 'fontSize': '14px'}
         )
-    ], style={'padding': '10px'})
+    ], style={'padding': '10px'}),
+    
 ])
+
+@app.callback(
+    Output('legend', 'style'),
+    Input('toggle-legend', 'n_clicks'),
+    State('legend', 'style')
+)
+def toggle_legend(n_clicks, style):
+    if n_clicks % 2 == 0:
+        style['display'] = 'none'
+    else:
+        style['display'] = 'block'
+    return style
+
+@app.callback(
+    Output("help-modal", "is_open"),
+    [Input("open-help-modal", "n_clicks"), Input("close-help-modal", "n_clicks")],
+    [State("help-modal", "is_open")]
+)
+def toggle_modal(n1, n2, is_open):
+    if n1 or n2:
+        return not is_open
+    return is_open
 
 
 @app.callback(
@@ -745,7 +808,7 @@ def update_map(map_style, color_mode, orbit_filter, selected_area, pred_range, p
         if selected_area == 'turow':
             max_steps = MAX_TUROW
         elif selected_area == 'bedzin':
-            max_steps = MAX_BEDZIN_dense
+            max_steps = MAX_BEDZIN
         elif selected_area == 'grunwald':
             max_steps = MAX_GRUNWALD
         else:
@@ -753,7 +816,7 @@ def update_map(map_style, color_mode, orbit_filter, selected_area, pred_range, p
 
         pred_key = (
             selected_area,
-            prediction_method if selected_area in ['turow', 'grunwald', 'bedzin'] else 'autoencoder'
+            prediction_method if selected_area in ['turow', 'grunwald', 'bedzin'] else 'dense'
         )
         prefix_pivot = prefix_data[pred_key]
 
@@ -827,7 +890,7 @@ def update_map(map_style, color_mode, orbit_filter, selected_area, pred_range, p
         elif selected_area == 'grunwald':
             merged_data = filtered_data.merge(anomaly_data_grunwald_99[['pid', 'is_anomaly']], on='pid', how='left')
         else:
-            merged_data = filtered_data.merge(anomaly_data_bedzin_dense_99[['pid', 'is_anomaly']], on='pid', how='left')
+            merged_data = filtered_data.merge(anomaly_data_bedzin_99_dense[['pid', 'is_anomaly']], on='pid', how='left')
 
         merged_data['is_anomaly'] = merged_data['is_anomaly'].fillna(False).astype(bool)
         merged_data['consecutive_anomalies'] = (
@@ -988,7 +1051,10 @@ def update_date_picker(selected_area):
     return start_date, end_date, start_date, end_date
 
 @app.callback(
-    [Output('displacement-graph', 'figure'), Output('displacement-container', 'style')],
+    [Output('displacement-graph', 'figure'), 
+     Output('displacement-container', 'style'),
+     Output('point-attributes-table', 'data'),
+     Output('point-attributes-container', 'style')],
     [Input('map', 'clickData'),
      Input('date-range-picker', 'start_date'),
      Input('date-range-picker', 'end_date'),
@@ -999,7 +1065,7 @@ def update_date_picker(selected_area):
 )
 def display_displacement(clickData, start_date, end_date, y_min, y_max, selected_area, prediction_method):
     if clickData is None:
-        return {}, {'display': 'none'}
+        return {}, {'display': 'none'}, [], {'display': 'none'}
 
     point_id = clickData['points'][0]['hovertext']
     start_date = pd.to_datetime(start_date)
@@ -1011,7 +1077,7 @@ def display_displacement(clickData, start_date, end_date, y_min, y_max, selected
         anomaly_data_99 = all_anomaly_data_99_wroclaw
         last_n_data = full_data.tail(60)
     elif selected_area == 'grunwald':
-        if prediction_method == 'autoencoder':
+        if prediction_method == 'dense':
             full_data = all_data_grunwald[all_data_grunwald['pid'] == point_id].copy()
             anomaly_data_95 = anomaly_data_grunwald_95
             anomaly_data_99 = anomaly_data_grunwald_99
@@ -1043,7 +1109,7 @@ def display_displacement(clickData, start_date, end_date, y_min, y_max, selected
             anomaly_data_99 = anomaly_data_bedzin_99_ml
             last_n_data = full_data.tail(11)
     else:
-        if prediction_method == 'autoencoder':
+        if prediction_method == 'dense':
             full_data = all_data_turow[all_data_turow['pid'] == point_id].copy()
             anomaly_data_95 = anomaly_data_turow_95
             anomaly_data_99 = anomaly_data_turow_99
@@ -1086,7 +1152,6 @@ def display_displacement(clickData, start_date, end_date, y_min, y_max, selected
             )
 
     fig = px.line(filtered_data, x='timestamp', y='displacement', 
-                  title=f"Displacement LOS for point {point_id}",
                   markers=True, 
                   labels={'displacement': 'Displacement[mm]'})
 
@@ -1143,8 +1208,18 @@ def display_displacement(clickData, start_date, end_date, y_min, y_max, selected
         legend_title="Legend",
         legend=dict(yanchor="top", y=1, xanchor="left", x=1.05)
     )
+    
+    displacement_data = full_data[full_data['pid'] == point_id]
+    attributes = {
+        'Point ID': point_id,
+        'Mean Velocity': f"{displacement_data['mean_velocity'].mean():.2f}",
+        'Minimum Displacement': f"{displacement_data['displacement'].min():.2f}",
+        'Maximum Displacement': f"{displacement_data['displacement'].max():.2f}"
+    }
 
-    return fig, {'display': 'block'}
+    attributes_data = [{'Name': key, 'Value': value} for key, value in attributes.items()]
+
+    return fig, {'display': 'block'}, attributes_data, {'display': 'block'}
     
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
