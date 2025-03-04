@@ -1,6 +1,14 @@
+.draggable-modal .modal-dialog {
+    cursor: grab; /* styl kursora wskazujący, że można przeciągnąć */
+    width: auto; /* szerokość można dostosować według potrzeb */
+    max-width: 80%; /* maksymalna szerokość */
+    margin: 1.75rem auto; /* centruje modal */
+}
+
 .draggable-modal .modal-content {
-    cursor: move;  /* Cursor indicates that the modal can be moved */
-    position: fixed;
-    top: 10%;  /* Adjust top position as per your requirement */
-    right: 10%; /* Adjust right position as per your requirement */
+    position: fixed; /* pozycja stała, aby modal był nad innymi elementami */
+    top: 10%; /* początkowa pozycja od góry ekranu */
+    right: 10%; /* początkowa pozycja od prawej strony ekranu */
+    z-index: 1050; /* upewnia się, że modal jest na wierzchu */
+    box-shadow: 0 5px 15px rgba(0,0,0,0.5); /* cień dla lepszego efektu wizualnego */
 }
