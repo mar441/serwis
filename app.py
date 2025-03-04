@@ -524,7 +524,8 @@ app.layout = html.Div([
             )
         ],
         id="legend-modal",
-        is_open=False,
+        is_open=True,  
+        className="draggable-modal",
         backdrop=False,
         content_style={"borderRadius": "12px", "backgroundColor": "white"},
         size="lg",
