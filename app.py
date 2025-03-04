@@ -422,7 +422,7 @@ app.layout = html.Div([
             dbc.ModalHeader(),
             dbc.ModalBody(
                 html.Iframe(
-                    src=app.get_asset_url("INSTRUKCJA_OBSLUGI_SERWISU.docx.pdf"),
+                    src="https://github.com/mar441/upwrinsarmonitoring/blob/main/INSTRUKCJA_OBSLUGI_SERWISU.docx.pdf",
                     style={"height": "500px", "width": "100%"}
                 )
             ),
