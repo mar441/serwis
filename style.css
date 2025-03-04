@@ -1,0 +1,6 @@
+.draggable-modal .modal-content {
+    cursor: move;  /* Cursor indicates that the modal can be moved */
+    position: fixed;
+    top: 10%;  /* Adjust top position as per your requirement */
+    right: 10%; /* Adjust right position as per your requirement */
+}
