@@ -411,23 +411,43 @@ orbit_geometry_info = {
 
 app = dash.Dash(__name__, suppress_callback_exceptions=True,external_stylesheets=[dbc.themes.BOOTSTRAP])
 
+app = dash.Dash(__name__, suppress_callback_exceptions=True,external_stylesheets=[dbc.themes.BOOTSTRAP])
+
 app.layout = html.Div([
+
     html.Div([
-        html.H3("Select Map and Data Visualization Options", style={'display': 'inline-block', 'margin-right': '20px'}),
-        html.Button("Info", id="open-help-modal", n_clicks=0, className="help-button", style={'float': 'right'}),
+        html.H3("Select Map and Data Visualization Options", 
+                style={'display': 'inline-block', 'margin-right': '20px'}),
+        html.Div([
+            html.Button(
+                "Info", 
+                id="open-help-modal", 
+                n_clicks=0, 
+                className="help-button", 
+                style={'display': 'inline-block', 'marginRight': '10px','backgroundColor': 'transparent',
+                       'borderRadius': '10px', 'border': '1px solid #ccc'}
+            ),
+            html.Button(
+                "Legend",
+                id="open-legend-modal",
+                n_clicks=0,
+                className="help-button",
+                style={'display': 'inline-block','backgroundColor': 'transparent',
+                       'borderRadius': '5px', 'border': '1px solid #ccc'}
+            )
+        ], style={'display': 'flex', 'alignItems': 'center'})
     ], style={'display': 'flex', 'justify-content': 'space-between', 'align-items': 'center'}),
 
     dbc.Modal(
         [
-            dbc.ModalHeader(),
+            dbc.ModalHeader(dbc.ModalTitle("Instruction")),
             dbc.ModalBody(
-                html.Iframe(
-                    src="https://mar441.github.io/upwrinsarmonitoring/INSTRUKCJA_OBSLUGI_SERWISU.html",
-                    style={"height": "500px", "width": "100%"}
-                )
-            ),
-            dbc.ModalFooter(
-                html.Button("Close", id="close-help-modal", className="close-button")
+                html.Div([
+                    html.Iframe(
+                        src="https://mar441.github.io/upwrinsarmonitoring/INSTRUKCJA_OBSLUGI_SERWISU.html",
+                        style={"height": "400px", "width": "100%"}
+                    )
+                ])
             )
         ],
         id="help-modal",
@@ -435,7 +455,81 @@ app.layout = html.Div([
         size="lg",
         style={"overflowY": "auto"}
     ),
-    
+    dbc.Modal(
+        [
+            dbc.ModalHeader(dbc.ModalTitle("Legend Settings")),
+            dbc.ModalBody(
+                html.Div([
+                    html.Label("Points Transparency"),
+                    dcc.Slider(
+                        id='point-opacity-slider',
+                        min=0, 
+                        max=1, 
+                        step=0.1,
+                        value=1,
+                        marks={0: '0', 0.5: '0.5', 1: '1.0'}
+                    ),
+                    html.Br(),
+                    html.Label("Points Size"),
+                    dcc.Slider(
+                        id='point-size-slider',
+                        min=3, 
+                        max=20, 
+                        step=1,
+                        value=7,
+                        marks={3: '3', 10: '10', 20: '20'}
+                    ),
+                    html.Br(),
+                    html.Div(
+                        [
+                            html.Label("Color Scale"),
+                            dcc.Dropdown(
+                                id='color-scale-dropdown',
+                                options=[
+                                    {'label': 'Jet', 'value': 'Jet'},
+                                    {'label': 'Viridis', 'value': 'Viridis'},
+                                    {'label': 'Plasma', 'value': 'Plasma'},
+                                    {'label': 'Turbo', 'value': 'Turbo'},
+                                    {'label': 'Cividis', 'value': 'Cividis'},
+                                ],
+                                value='Jet',
+                                clearable=False
+                            ),
+                        ],
+                        id='color-scale-dropdown-container'
+                    ),
+                    html.Div([
+                        html.Label("Color Range"),
+                        dcc.Dropdown(
+                            id='color-range-dropdown',
+                            options=[
+                                {'label': '-5 to 5', 'value': 'range_5'},
+                                {'label': '-10 to 10', 'value': 'range_10'},
+                                {'label': '-20 to 20', 'value': 'range_20'},
+                                {'label': '-40 to 40', 'value': 'range_40'},
+                                {'label': 'Custom',   'value': 'custom'}
+                            ],
+                            value='range_5',
+                            clearable=False
+                        ),
+                        html.Div([
+                            html.Label("Min:", style={'marginRight':'10px'}),
+                            dcc.Input(id='custom-min-input', type='number', value=-5, style={'width':'80px'}),
+                            html.Label("Max:", style={'margin':'0 10px 0 20px'}),
+                            dcc.Input(id='custom-max-input', type='number', value=5, style={'width':'80px'}),
+                        ], id='custom-range-container', style={'display':'none','marginTop':'10px'}),
+                    ], id='color-range-dropdown-container'),
+                    html.Br(),
+                ])
+            )
+        ],
+        id="legend-modal",
+        is_open=False,
+        backdrop=False,
+        content_style={"borderRadius": "12px", "backgroundColor": "white"},
+        size="lg",
+        style={"overflowY": "auto"}
+    ),
     html.Div([
         html.Div([
             html.Label("Map Style"),
@@ -452,7 +546,7 @@ app.layout = html.Div([
                 clearable=False,
                 style={'width': '100%'}
             )
-        ], style={'display': 'inline-block', 'width': '19%', 'padding': '10px'}),
+        ], style={'display': 'inline-block', 'width': '16%', 'padding': '10px'}),
 
         html.Div([
             html.Label("Visualization Option"),
@@ -469,23 +563,22 @@ app.layout = html.Div([
                 clearable=False,
                 style={'width': '100%'}
             )
-        ], style={'display': 'inline-block', 'width': '19%', 'padding': '10px'}),
-
+        ], style={'display': 'inline-block', 'width': '16%', 'padding': '10px'}),
         html.Div([
             html.Label("Filter by LOS Geometry"),
             dcc.Dropdown(
                 id='orbit-filter-dropdown',
                 options=[
                     {'label': 'Ascending 175', 'value': 'Ascending 175'},
-                    {'label': 'Descending 124', 'value': 'Descending 124'}
+                    {'label': 'Descending 124', 'value': 'Descending 124'},
+                    {'label': 'Ascending 73', 'value': 'Ascending 73'}
                 ],
                 value='Ascending 175',
                 multi=True,
                 clearable=False,
                 style={'width': '100%'}
             )
-        ], style={'display': 'inline-block', 'width': '19%', 'padding': '10px'}),
-
+        ], style={'display': 'inline-block', 'width': '16%', 'padding': '10px'}),
         html.Div([
             html.Label("Select Area of Interest"),
             dcc.Dropdown(
@@ -498,12 +591,11 @@ app.layout = html.Div([
                 ],
                 value='wroclaw',
                 clearable=False,
-                persistence=True,     
+                persistence=True,
                 persistence_type='memory',
                 style={'width': '100%'}
             )
-        ], style={'display': 'inline-block', 'width': '19%', 'padding': '10px'}),
-
+        ], style={'display': 'inline-block', 'width': '16%', 'padding': '10px'}),
         html.Div([
             html.Label("Enable Distance Calculation"),
             dcc.Dropdown(
@@ -516,131 +608,160 @@ app.layout = html.Div([
                 clearable=False,
                 style={'width': '100%'}
             )
-        ], style={'display': 'inline-block', 'width': '19%', 'padding': '10px'})
+        ], style={'display': 'inline-block', 'width': '16%', 'padding': '10px'}),
     ], style={'width': '100%', 'display': 'flex', 'justify-content': 'space-between'}),
-    
-    
     html.Div(id='distance-output', style={'font-size': '16px', 'padding': '10px', 'color': 'black'}),
-
-    html.Div(id='prediction-method-container', children=[
-        html.Label("Select Prediction Method"),
-        dcc.Dropdown(
-            id='prediction-method-dropdown',
-            options=[
-                {'label': 'Autoencoder Dense', 'value': 'dense'},
-                {'label': 'LSTM', 'value': 'lstm'},
-                {'label': 'Autoencoder Conv', 'value': 'conv'},
-                {'label': 'ML', 'value': 'ml'}
-            ],
-            value='dense',
-            clearable=False,
-            style={'width': '100%'}
-        )
-    ], style={'display': 'none', 'padding': '10px'}),
-
+    html.Div(
+        id='prediction-method-container',
+        children=[
+            html.Label("Select Prediction Method"),
+            dcc.Dropdown(
+                id='prediction-method-dropdown',
+                options=[
+                    {'label': 'Autoencoder Dense', 'value': 'dense'},
+                    {'label': 'LSTM', 'value': 'lstm'},
+                    {'label': 'Autoencoder Conv', 'value': 'conv'},
+                    {'label': 'ML', 'value': 'ml'}
+                ],
+                value='dense',
+                clearable=False,
+                style={'width': '100%'}
+            )
+        ],
+        style={'display': 'none', 'padding': '10px'}
+    ),
     html.Div([
         html.Label("Select Observation Range"),
         html.Div(id='selected-range-dates', style={'fontSize': '14px', 'margin': '10px 0'}),
-
         dcc.RangeSlider(
             id='dynamic-prediction-range-slider',
             min=1,
             max=60,
-            step=1, 
-            marks={}, 
+            step=1,
+            marks={},
             value=[1, 5],
-            tooltip={"placement": "bottom", "always_visible": True}, 
+            tooltip={"placement": "bottom", "always_visible": True},
             allowCross=False
         )
     ], id='prediction-slider-container', style={'display': 'none', 'padding': '10px'}),
-
-    dcc.Graph(id='map', style={'height': '80vh', 'width': '95vw'}, config={'scrollZoom': True, 'doubleClick': False}),
+    dcc.Graph(
+        id='map',
+        style={'height': '80vh', 'width': '95vw'},
+        config={'scrollZoom': True, 'doubleClick': False}
+    ),
     dcc.Store(id='selected-points', data={'point_1': None, 'point_2': None}),
-
-    html.Div(id='displacement-container', children=[
-        html.Div([ 
-            html.Label("Select Date Range", style={'font-size': '16px'}),
-            dcc.DatePickerRange(
-                id='date-range-picker',
-                start_date=all_data_wroclaw['timestamp'].min(),
-                end_date=all_data_wroclaw['timestamp'].max(),
-                display_format='YYYY-MM-DD',
-                style={'height': '5px', 'width': '300px', 'font-family': 'Arial', 'font-size': '4px', 'display': 'inline-block', 'padding': '5px'}
-            )
-        ], style={'display': 'inline-block', 'padding': '10px'}),
-
-        html.Div([ 
-            html.Label("Set Y-Axis Range (mm)"),
-            dcc.Input(
-                id='y-axis-min',
-                type='number',
-                placeholder='Min',
-                style={'width': '20%', 'margin-right': '10px'}
-            ),
-            dcc.Input(
-                id='y-axis-max',
-                type='number',
-                placeholder='Max',
-                style={'width': '20%'}
-            ),
-        ], style={'display': 'inline-block', 'padding': '10px'}),
-
-        dcc.Graph(id='displacement-graph', style={'height': '50vh', 'width': '95vw'})
-    ], style={'display': 'none'}),
-    
-        html.Div([
-            html.H5(style={'marginTop': '10px', 'marginBottom': '10px'}),
-            dash_table.DataTable(
-                id='point-attributes-table',
-                columns=[
-                    {'name': 'Name', 'id': 'Name'},
-                    {'name': 'Value', 'id': 'Value'}
-                ],
-                data=[],
-                style_cell={'textAlign': 'left'},
-                style_header={
-                    'backgroundColor': 'white',
-                    'fontWeight': 'bold'
-                },
-                style_table={'width': '50%', 'margin': 'auto'}
-            )
-        ], id='point-attributes-container', style={'display': 'none'}),
-    
+    html.Div(
+        id='displacement-container',
+        children=[
+            html.Div([
+                html.Label("Select Date Range", style={'font-size': '16px'}),
+                dcc.DatePickerRange(
+                    id='date-range-picker',
+                    start_date=all_data_wroclaw['timestamp'].min(),
+                    end_date=all_data_wroclaw['timestamp'].max(),
+                    display_format='YYYY-MM-DD',
+                    style={
+                        'height': '5px', 'width': '300px', 'font-family': 'Arial',
+                        'font-size': '4px', 'display': 'inline-block', 'padding': '5px'
+                    }
+                )
+            ], style={'display': 'inline-block', 'padding': '10px'}),
+            html.Div([
+                html.Label("Set Y-Axis Range (mm)"),
+                dcc.Input(
+                    id='y-axis-min',
+                    type='number',
+                    placeholder='Min',
+                    style={'width': '20%', 'margin-right': '10px'}
+                ),
+                dcc.Input(
+                    id='y-axis-max',
+                    type='number',
+                    placeholder='Max',
+                    style={'width': '20%'}
+                ),
+            ], style={'display': 'inline-block', 'padding': '10px'}),
+            dcc.Graph(id='displacement-graph', style={'height': '50vh', 'width': '95vw'})
+        ],
+        style={'display': 'none'}
+    ),
+    html.Div([
+        html.H5(style={'marginTop': '10px', 'marginBottom': '10px'}),
+        dash_table.DataTable(
+            id='point-attributes-table',
+            columns=[
+                {'name': 'Name', 'id': 'Name'},
+                {'name': 'Value', 'id': 'Value'}
+            ],
+            data=[],
+            style_cell={'textAlign': 'left'},
+            style_header={'backgroundColor': 'white','fontWeight': 'bold'},
+            style_table={'width': '50%', 'margin': 'auto'}
+        )
+    ], id='point-attributes-container', style={'display': 'none'}),
     html.Div([
         html.Hr(style={'margin': '5px 0'}),
-        html.Div(
-            [
-                html.P("This work was supported by the Wrocław University of Environmental and Life Sciences (Poland) "
-                    "as part of the research project No. N060/0004/23.")
-            ],
-            style={'textAlign': 'center', 'fontSize': '14px'}
-        )
+        html.Div([
+            html.P(
+                "This work was supported by the Wrocław University of Environmental "
+                "and Life Sciences (Poland) as part of the research project No. N060/0004/23."
+            )
+        ], style={'textAlign': 'center', 'fontSize': '14px'})
     ], style={'padding': '10px'}),
-    
 ])
 
 @app.callback(
-    Output('legend', 'style'),
-    Input('toggle-legend', 'n_clicks'),
-    State('legend', 'style')
+    Output('color-range-dropdown-container', 'style'),
+    Input('color-mode-dropdown', 'value')
 )
-def toggle_legend(n_clicks, style):
-    if n_clicks % 2 == 0:
-        style['display'] = 'none'
+def toggle_color_range_container(selected_mode):
+    continuous_modes = ['speed', 'prediction_velocity', 'actual_displacement_velocity']
+    if selected_mode in continuous_modes:
+        return {'display': 'block'}
     else:
-        style['display'] = 'block'
-    return style
+        return {'display': 'none'}
 
 @app.callback(
-    Output("help-modal", "is_open"),
-    [Input("open-help-modal", "n_clicks"), Input("close-help-modal", "n_clicks")],
-    [State("help-modal", "is_open")]
+    Output('custom-range-container', 'style'),
+    Input('color-range-dropdown', 'value')
 )
-def toggle_modal(n1, n2, is_open):
-    if n1 or n2:
+def toggle_custom_range(range_choice):
+    if range_choice == 'custom':
+        return {'display': 'block','marginTop':'10px'}
+    else:
+        return {'display':'none'}
+    
+@app.callback(
+    Output('color-scale-dropdown-container', 'style'),
+    Input('color-mode-dropdown', 'value')
+)
+def toggle_color_scale_visibility(selected_mode):
+    continuous_modes = ['speed', 'prediction_velocity', 'actual_displacement_velocity']
+
+    if selected_mode in continuous_modes:
+        return {'display': 'block'}
+    else:
+        return {'display': 'none'}
+
+@app.callback(
+    Output("legend-modal", "is_open"),
+    Input("open-legend-modal", "n_clicks"),
+    State("legend-modal", "is_open")
+)
+def toggle_legend_modal(n_clicks, is_open):
+    if n_clicks:
         return not is_open
     return is_open
 
+@app.callback(
+    Output("help-modal", "is_open"),
+    Input("open-help-modal", "n_clicks"),
+    State("help-modal", "is_open")
+)
+def toggle_help_modal(n_clicks, is_open):
+    if n_clicks:
+        return not is_open
+    return is_open
 
 @app.callback(
     Output('selected-range-dates', 'children'),
@@ -776,13 +897,21 @@ def update_slider_max(selected_area, color_mode, prediction_method):
         Input('orbit-filter-dropdown', 'value'),
         Input('area-dropdown', 'value'),
         Input('dynamic-prediction-range-slider', 'value'),
-        Input('prediction-method-dropdown', 'value')
+        Input('prediction-method-dropdown', 'value'),
+        Input('point-opacity-slider', 'value'),
+        Input('point-size-slider', 'value'),
+        Input('color-scale-dropdown', 'value'),  
+        Input('color-range-dropdown', 'value'),  
+        Input('custom-min-input', 'value'),      
+        Input('custom-max-input', 'value')      
     ]
 )
-def update_map(map_style, color_mode, orbit_filter, selected_area, pred_range, prediction_method):
+def update_map(map_style,color_mode,orbit_filter,selected_area,pred_range,prediction_method,point_opacity,point_size,
+               color_scale_selected,range_choice,custom_min,custom_max):
+
     if selected_area == 'wroclaw':
         data = all_data_wroclaw.drop_duplicates(subset=['pid'])
-        center_coords = {'lat': all_data_wroclaw['latitude'].mean(), 'lon': all_data_wroclaw['longitude'].mean()}
+        center_coords = {'lat': data['latitude'].mean(), 'lon': data['longitude'].mean()}
         zoom_level = 14
     elif selected_area == 'turow':
         data = all_data_turow.drop_duplicates(subset=['pid'])
@@ -794,9 +923,9 @@ def update_map(map_style, color_mode, orbit_filter, selected_area, pred_range, p
         center_coords = {'lat': 51.11249671461431, 'lon': 17.06133312265709}
         zoom_level = 14
         orbit_filter = ['Ascending 175']
-    else:
+    else:  
         data = all_data_bedzin_dense.drop_duplicates(subset=['pid'])
-        center_coords = {'lat': all_data_bedzin_dense['latitude'].mean(), 'lon': all_data_bedzin_dense['longitude'].mean()}
+        center_coords = {'lat': data['latitude'].mean(), 'lon': data['longitude'].mean()}
         zoom_level = 14.5
         orbit_filter = ['Ascending 175']
 
@@ -804,9 +933,11 @@ def update_map(map_style, color_mode, orbit_filter, selected_area, pred_range, p
         orbit_filter = [orbit_filter]
 
     filtered_data = data[data['file'].isin(orbit_filter)].copy()
-    filtered_data.loc[:, 'mean_velocity'] = filtered_data['mean_velocity'].round(1)
+    filtered_data['mean_velocity'] = filtered_data['mean_velocity'].round(1)
 
     start_val, end_val = pred_range
+
+    continuous_modes = ['speed', 'prediction_velocity', 'actual_displacement_velocity']
 
     if color_mode == 'prediction_velocity':
         if selected_area == 'turow':
@@ -818,16 +949,13 @@ def update_map(map_style, color_mode, orbit_filter, selected_area, pred_range, p
         else:
             max_steps = MAX_WROCLAW
 
-        pred_key = (
-            selected_area,
-            prediction_method if selected_area in ['turow', 'grunwald', 'bedzin'] else 'dense'
-        )
+        pred_key = (selected_area, prediction_method if selected_area in ['turow', 'grunwald', 'bedzin'] else 'dense')
         prefix_pivot = prefix_data[pred_key]
 
         end_val = min(end_val, max_steps)
         start_val = min(start_val, max_steps)
 
-        numerator = prefix_pivot[end_val] - prefix_pivot[start_val-1]
+        numerator = prefix_pivot[end_val] - prefix_pivot[start_val - 1]
         denominator = (end_val - start_val + 1)
         prediction_avg = numerator / denominator
 
@@ -835,17 +963,29 @@ def update_map(map_style, color_mode, orbit_filter, selected_area, pred_range, p
         merged_data['prediction_velocity'] = prediction_avg
         merged_data.reset_index(inplace=True)
 
+        if range_choice == 'range_5':
+            vmin, vmax = -5, 5
+        elif range_choice == 'range_10':
+            vmin, vmax = -10, 10
+        elif range_choice == 'range_20':
+            vmin, vmax = -20, 20
+        elif range_choice == 'range_40':
+            vmin, vmax = -40, 40
+        else:  
+            vmin, vmax = custom_min, custom_max
+
         fig = px.scatter_mapbox(
             merged_data,
-            lat='latitude', lon='longitude',
+            lat='latitude',
+            lon='longitude',
             hover_name='pid',
             hover_data={'latitude': True, 'longitude': True, 'height': True},
-            color='prediction_velocity',  
-            color_continuous_scale='Jet',
-            range_color=(-5, 5),
-            labels={'latitude': 'Latitude', 'longitude': 'Longitude', 'height': 'Height'},
-            zoom=zoom_level
-        )
+            color='prediction_velocity',
+            color_continuous_scale=color_scale_selected,
+            range_color=(vmin, vmax),
+            labels={'latitude': 'Latitude','longitude': 'Longitude','height': 'Height'},
+            zoom=zoom_level,
+            opacity=point_opacity)
         fig.update_layout(legend_title_text='Prediction Velocity Average')
 
     elif color_mode == 'actual_displacement_velocity':
@@ -865,7 +1005,7 @@ def update_map(map_style, color_mode, orbit_filter, selected_area, pred_range, p
         end_val = min(end_val, max_steps)
         start_val = min(start_val, max_steps)
 
-        numerator = prefix_pivot[end_val] - prefix_pivot[start_val-1]
+        numerator = prefix_pivot[end_val] - prefix_pivot[start_val - 1]
         denominator = (end_val - start_val + 1)
         actual_avg = numerator / denominator
 
@@ -873,34 +1013,44 @@ def update_map(map_style, color_mode, orbit_filter, selected_area, pred_range, p
         merged_data['actual_displacement_velocity'] = actual_avg
         merged_data.reset_index(inplace=True)
 
+        if range_choice == 'range_5':
+            vmin, vmax = -5, 5
+        elif range_choice == 'range_10':
+            vmin, vmax = -10, 10
+        elif range_choice == 'range_20':
+            vmin, vmax = -20, 20
+        elif range_choice == 'range_40':
+            vmin, vmax = -40, 40
+        else:  
+            vmin, vmax = custom_min, custom_max
+
         fig = px.scatter_mapbox(
             merged_data,
-            lat='latitude', lon='longitude',
+            lat='latitude',
+            lon='longitude',
             hover_name='pid',
             hover_data={'latitude': True, 'longitude': True, 'height': True},
-            color='actual_displacement_velocity',  
-            color_continuous_scale='Jet',
-            range_color=(-5, 5),
-            labels={'latitude': 'Latitude', 'longitude': 'Longitude', 'height': 'Height'},
-            zoom=zoom_level
-        )
+            color='actual_displacement_velocity',
+            color_continuous_scale=color_scale_selected,
+            range_color=(vmin, vmax),
+            labels={'latitude': 'Latitude','longitude': 'Longitude','height': 'Height'},
+            zoom=zoom_level,
+            opacity=point_opacity)
         fig.update_layout(legend_title_text='Actual Displacement Velocity Average')
 
     elif color_mode == 'anomaly_type':
         if selected_area == 'wroclaw':
-            merged_data = filtered_data.merge(all_anomaly_data_99_wroclaw[['pid', 'is_anomaly']], on='pid', how='left')
+            merged_data = filtered_data.merge(all_anomaly_data_99_wroclaw[['pid','is_anomaly']], on='pid', how='left')
         elif selected_area == 'turow':
-            merged_data = filtered_data.merge(anomaly_data_turow_99[['pid', 'is_anomaly']], on='pid', how='left')
+            merged_data = filtered_data.merge(anomaly_data_turow_99[['pid','is_anomaly']], on='pid', how='left')
         elif selected_area == 'grunwald':
-            merged_data = filtered_data.merge(anomaly_data_grunwald_99[['pid', 'is_anomaly']], on='pid', how='left')
+            merged_data = filtered_data.merge(anomaly_data_grunwald_99[['pid','is_anomaly']], on='pid', how='left')
         else:
-            merged_data = filtered_data.merge(anomaly_data_bedzin_99_dense[['pid', 'is_anomaly']], on='pid', how='left')
+            merged_data = filtered_data.merge(anomaly_data_bedzin_99_dense[['pid','is_anomaly']], on='pid', how='left')
 
         merged_data['is_anomaly'] = merged_data['is_anomaly'].fillna(False).astype(bool)
         merged_data['consecutive_anomalies'] = (
-            merged_data.groupby('pid')['is_anomaly']
-            .rolling(3, min_periods=3).sum().reset_index(0, drop=True)
-        )
+            merged_data.groupby('pid')['is_anomaly'].rolling(3, min_periods=3).sum().reset_index(0, drop=True))
         merged_data['anomaly_3plus'] = merged_data['consecutive_anomalies'] >= 3
 
         fig = px.scatter_mapbox(
@@ -908,42 +1058,55 @@ def update_map(map_style, color_mode, orbit_filter, selected_area, pred_range, p
             lat='latitude', lon='longitude',
             hover_name='pid',
             hover_data={'latitude': True, 'longitude': True, 'height': True},
-            labels={'latitude': 'Latitude', 'longitude': 'Longitude', 'height': 'Height'},
+            labels={'latitude': 'Latitude','longitude': 'Longitude','height': 'Height'},
             color=merged_data['anomaly_3plus'].map({True: 'Anomaly', False: 'No Anomaly'}),
             color_discrete_map={'Anomaly': 'red', 'No Anomaly': 'green'},
-            zoom=zoom_level
-        )
+            zoom=zoom_level,
+            opacity=point_opacity)
         fig.update_layout(legend_title_text='Anomaly Type')
 
     elif color_mode == 'orbit':
         fig = px.scatter_mapbox(
             filtered_data,
-            lat='latitude', lon='longitude',
+            lat='latitude',
+            lon='longitude',
             hover_name='pid',
             hover_data={'latitude': True, 'longitude': True, 'height': True},
-            labels={'latitude': 'Latitude', 'longitude': 'Longitude', 'height': 'Height'},
+            labels={'latitude': 'Latitude','longitude': 'Longitude','height': 'Height'},
             color='file',
-            zoom=zoom_level
-        )
+            zoom=zoom_level,
+            opacity=point_opacity)
         fig.update_layout(legend_title_text='Orbit Type')
 
-    elif color_mode == 'speed':
+    else:
+        if range_choice == 'range_5':
+            vmin, vmax = -5, 5
+        elif range_choice == 'range_10':
+            vmin, vmax = -10, 10
+        elif range_choice == 'range_20':
+            vmin, vmax = -20, 20
+        elif range_choice == 'range_40':
+            vmin, vmax = -40, 40
+        else:
+            vmin, vmax = custom_min, custom_max
+
         fig = px.scatter_mapbox(
             filtered_data,
-            lat='latitude', lon='longitude',
+            lat='latitude',
+            lon='longitude',
             hover_name='pid',
             hover_data={'latitude': True, 'longitude': True, 'height': True},
             color='mean_velocity',
-            color_continuous_scale='Jet',
-            labels={'latitude': 'Latitude', 'longitude': 'Longitude', 'height': 'Height'},
-            zoom=zoom_level
-        )
+            color_continuous_scale=color_scale_selected,
+            range_color=(vmin, vmax),
+            labels={'latitude': 'Latitude','longitude': 'Longitude','height': 'Height'},
+            zoom=zoom_level,
+            opacity=point_opacity)
         fig.update_layout(legend_title_text='Mean Velocity')
-        
-    if orbit_filter is not None:
-        if isinstance(orbit_filter, str):
-            orbit_filter = [orbit_filter]
 
+    fig.update_traces(marker=dict(size=point_size))
+
+    if orbit_filter is not None and len(orbit_filter) > 0:
         annotation_lines = ["Orbit Geometry Info:<br>"]
         for orbit in orbit_filter:
             if orbit in orbit_geometry_info:
@@ -952,13 +1115,11 @@ def update_map(map_style, color_mode, orbit_filter, selected_area, pred_range, p
                     f"<b>{orbit}</b>:<br>"
                     f"Relative orbit number: {info['Relative orbit number']}<br>"
                     f"View angle: {info['View angle']}<br>"
-                    f"Mean Incidence angle: {info['Mean Incidence angle']}<br><br>"
-                )
-
+                    f"Mean Incidence angle: {info['Mean Incidence angle']}<br><br>")
+                
         if len(annotation_lines) > 1:
-            annotation_text = "".join(annotation_lines)
             fig.add_annotation(
-                text=annotation_text,
+                text="".join(annotation_lines),
                 xref="paper", yref="paper",
                 x=1, y=1,
                 showarrow=False,
@@ -967,16 +1128,14 @@ def update_map(map_style, color_mode, orbit_filter, selected_area, pred_range, p
                 borderwidth=1,
                 borderpad=4,
                 bgcolor="white",
-                opacity=0.8
-            )
+                opacity=0.8)
 
     fig.update_layout(
         mapbox_style=map_style,
         autosize=True,
         margin=dict(l=0, r=0, t=0, b=0),
         mapbox=dict(center=center_coords),
-        coloraxis_colorbar=dict(title=None), 
-    )
+        coloraxis_colorbar=dict(title=None))
 
     return fig
 
