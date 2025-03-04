@@ -422,7 +422,7 @@ app.layout = html.Div([
             dbc.ModalHeader(),
             dbc.ModalBody(
                 html.Iframe(
-                    src="https://drive.google.com/file/d/1rqgJItrSTVqV18ZzcbUYAuQQD9hO4EjE/view?usp=sharing",
+                    src="https://mar441.github.io/upwrinsarmonitoring/INSTRUKCJA_OBSLUGI_SERWISU.html",
                     style={"height": "500px", "width": "100%"}
                 )
             ),
