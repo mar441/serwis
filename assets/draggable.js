@@ -1,64 +1,25 @@
-document.addEventListener('DOMContentLoaded', function() {
-    var dragItem = document.querySelector(".draggable-modal .modal-content");
-    var container = document.querySelector(".draggable-modal");
+document.addEventListener('DOMContentLoaded', function () {
+    const modal = document.querySelector('.draggable-modal .modal-content');
+    let isDragging = false;
+    let offsetX = 0;
+    let offsetY = 0;
 
-    var active = false;
-    var currentX;
-    var currentY;
-    var initialX;
-    var initialY;
-    var xOffset = 0;
-    var yOffset = 0;
+    modal.addEventListener('mousedown', function (e) {
+        isDragging = true;
+        offsetX = e.clientX - modal.getBoundingClientRect().left;
+        offsetY = e.clientY - modal.getBoundingClientRect().top;
+        modal.style.cursor = 'grabbing';
+    });
 
-    container.addEventListener("touchstart", dragStart, false);
-    container.addEventListener("touchend", dragEnd, false);
-    container.addEventListener("touchmove", drag, false);
-
-    container.addEventListener("mousedown", dragStart, false);
-    container.addEventListener("mouseup", dragEnd, false);
-    container.addEventListener("mousemove", drag, false);
-
-    function dragStart(e) {
-        if (e.type === "touchstart") {
-            initialX = e.touches[0].clientX - xOffset;
-            initialY = e.touches[0].clientY - yOffset;
-        } else {
-            initialX = e.clientX - xOffset;
-            initialY = e.clientY - yOffset;
+    document.addEventListener('mousemove', function (e) {
+        if (isDragging) {
+            modal.style.left = e.clientX - offsetX + 'px';
+            modal.style.top = e.clientY - offsetY + 'px';
         }
+    });
 
-        if (e.target === dragItem) {
-            active = true;
-        }
-    }
-
-    function dragEnd(e) {
-        initialX = currentX;
-        initialY = currentY;
-        active = false;
-    }
-
-    function drag(e) {
-        if (active) {
-        
-            e.preventDefault();
-        
-            if (e.type === "touchmove") {
-                currentX = e.touches[0].clientX - initialX;
-                currentY = e.touches[0].clientY - initialY;
-            } else {
-                currentX = e.clientX - initialX;
-                currentY = e.clientY - initialY;
-            }
-
-            xOffset = currentX;
-            yOffset = currentY;
-
-            setTranslate(currentX, currentY, dragItem);
-        }
-    }
-
-    function setTranslate(xPos, yPos, el) {
-        el.style.transform = "translate3d(" + xPos + "px, " + yPos + "px, 0)";
-    }
+    document.addEventListener('mouseup', function () {
+        isDragging = false;
+        modal.style.cursor = 'grab';
+    });
 });
